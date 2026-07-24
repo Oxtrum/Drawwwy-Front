@@ -1,12 +1,447 @@
+/* ============================================================
+   Drawwwy — Sistema de diseño
+   Los valores de marca, estados y superficies vienen de pallete.html.
+   El tema se conmuta con <html data-theme>, que sincroniza editor-store
+   con doc.theme para que el chrome y el lienzo nunca se desalineen.
+   ============================================================ */
+
 :root{
-  --bg:#111213; --panel:#1b1d1f; --panel2:#222527; --line:#2e3134;
-  --text:#e8e6e1; --muted:#9a978f; --accent:#d08b5b; --accent2:#3aa7e8;
+  /* ---- Marca ---- */
+  --brand:#1763D0;
+  --brand-hover:#4A8BE8;
+  --brand-active:#0F4491;
+  --on-brand:#FFFFFF;
+
+  /* ---- Estados ---- */
+  --success:#10B981;
+  --warning:#F59E0B;
+  --danger:#EF4444;
+
+  /* ---- Tipografía ---- */
+  --font-sans:"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:"Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  --fs-xs:10.5px;
+  --fs-sm:12px;
+  --fs-md:13px;
+  --fs-lg:15px;
+  --fs-xl:20px;
+
+  --tracking-caps:.07em;
+  --tracking-tight:-.011em;
+
+  /* ---- Forma ---- */
+  --r-sm:6px;
+  --r-md:8px;
+  --r-lg:12px;
+  --r-xl:16px;
+
+  /* ---- Movimiento ---- */
+  --ease:cubic-bezier(.4,0,.2,1);
+  --dur:.15s;
 }
+
+/* ---- Modo oscuro (por defecto) ----
+   Gris neutro tipo Miro/Linear, sin tinte azul en el fondo: el azul vive
+   solo en marca/acentos, nunca en las superficies. */
+:root,
+:root[data-theme="dark"]{
+  --bg:#141414;
+  --surface:#1C1C1C;
+  --surface-2:#262626;      /* derivado: controles elevados sobre --surface */
+  --surface-hover:#2E2E2E;  /* derivado */
+  --border:#2A2A2A;
+  --border-strong:#3D3D3D;  /* derivado */
+  --text:#F2F2F2;
+  --muted:#9A9A9A;
+  --brand-soft:rgba(23,99,208,.18);
+  --brand-edge:rgba(74,139,232,.45);
+  --shadow-lg:0 16px 40px rgba(0,0,0,.55);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  color-scheme:dark;
+}
+
+/* ---- Modo claro ---- */
+:root[data-theme="claro"]{
+  --bg:#FFFFFF;
+  --surface:#F8FAFC;
+  --surface-2:#FFFFFF;
+  --surface-hover:#EEF2F7;  /* derivado */
+  --border:#E2E8F0;
+  --border-strong:#CBD5E1;  /* derivado */
+  --text:#0F172A;
+  --muted:#64748B;
+  --brand-soft:rgba(23,99,208,.10);
+  --brand-edge:rgba(23,99,208,.35);
+  --shadow-lg:0 16px 40px rgba(15,23,42,.12);
+  --shadow-sm:0 1px 2px rgba(15,23,42,.06);
+  color-scheme:light;
+}
+
 *{box-sizing:border-box; margin:0; padding:0;}
-html,body,#root{height:100%;}
+
+/* body queda con altura automática (sin height/min-height): un bloque normal
+   no puede resolver un min-height en % contra un padre que a su vez también
+   mide "auto", así que %'s aquí simplemente no funcionan. #root usa 100vh
+   (absoluto, no depende de que nadie más resuelva un porcentaje): el editor,
+   que ocupa exactamente un viewport, se estira con flex:1 en .editor-shell;
+   el dashboard, que puede ser más alto que un viewport, empuja #root (y con
+   él a body) por encima de 100vh y la página hace scroll normal. */
 body{
-  background:var(--bg); color:var(--text);
-  font:13px/1.45 "Segoe UI", system-ui, sans-serif;
-  overflow:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-sans);
+  font-size:var(--fs-md);
+  line-height:1.45;
+  font-weight:450;
+  letter-spacing:var(--tracking-tight);
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
 }
-#root{display:flex; flex-direction:column;}
+
+#root{display:flex; flex-direction:column; min-height:100vh;}
+
+/* Las cifras editables se alinean en columna: mono + tabular. */
+input[type=number],
+.mono{
+  font-family:var(--font-mono);
+  font-variant-numeric:tabular-nums;
+  letter-spacing:0;
+}
+
+::selection{background:var(--brand); color:var(--on-brand);}
+
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border); border-radius:99px; border:3px solid transparent; background-clip:content-box;}
+::-webkit-scrollbar-thumb:hover{background:var(--border-strong); background-clip:content-box;}
+
+/* ============================================================
+   Editor — chrome de la aplicación.
+   ============================================================ */
+
+.editor-shell{flex:1; display:flex; flex-direction:column; min-height:0;}
+.editor-shell main{flex:1; display:flex; min-height:0;}
+
+/* ---------------- header (pills flotantes) ---------------- */
+header{
+  position:fixed; top:0; left:0; right:0; z-index:50;
+  display:flex; align-items:center; gap:10px;
+  padding:12px 16px; pointer-events:none;
+}
+.header-pill{
+  display:flex; align-items:center; gap:4px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:999px; padding:5px 6px;
+  box-shadow:var(--shadow-sm);
+  pointer-events:auto;
+}
+header .logo{
+  display:flex; align-items:center; gap:10px; user-select:none;
+}
+header .logo .logo-mark{display:block; width:36px; height:36px;}
+header .logo .wordmark{
+  font-size:22px; font-weight:700;
+  letter-spacing:-.03em; line-height:1;
+  display:flex; align-items:center;
+}
+header .logo .wordmark b{color:var(--brand-hover); font-weight:700;}
+.board-name{
+  font-size:var(--fs-sm); font-weight:450; color:var(--muted);
+  padding-left:8px; border-left:1px solid var(--border);
+  max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.pill-divider{
+  width:1px; height:20px; background:var(--border); flex-shrink:0;
+}
+.logo-link{color:inherit; text-decoration:none; display:flex;}
+.spacer{flex:1;}
+
+/* ---------------- controles base ---------------- */
+button, select{
+  font-family:inherit; font-size:var(--fs-sm); font-weight:500;
+  letter-spacing:var(--tracking-tight);
+  background:var(--surface-2); color:var(--text);
+  border:1px solid var(--border); border-radius:var(--r-md);
+  padding:6px 11px; cursor:pointer;
+  transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+button:hover{background:var(--surface-hover); border-color:var(--border-strong);}
+button:active{transform:translateY(.5px);}
+select{
+  padding-right:26px; appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 14px) 52%, calc(100% - 9px) 52%;
+  background-size:5px 5px,5px 5px; background-repeat:no-repeat;
+}
+select:hover{border-color:var(--border-strong);}
+button.primary{
+  background:var(--brand); border-color:var(--brand); color:var(--on-brand); font-weight:600;
+}
+button.primary:hover{background:var(--brand-hover); border-color:var(--brand-hover);}
+button.primary:active{background:var(--brand-active); border-color:var(--brand-active);}
+button.toggled{
+  background:var(--brand-soft); border-color:var(--brand-edge); color:var(--brand-hover);
+}
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible{
+  outline:2px solid var(--brand-hover); outline-offset:1px;
+}
+@media (prefers-reduced-motion: reduce){
+  button, select{transition:none;}
+  button:active{transform:none;}
+}
+
+/* Botón cuadrado solo-icono: toggle de tema, zoom, play, etc. */
+.icon-btn{
+  width:32px; height:32px; padding:0; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; color:var(--muted);
+  border:none; border-radius:50%;
+}
+.icon-btn:hover{background:var(--surface-hover); color:var(--text);}
+.icon-btn svg{width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.icon-btn.toggled{background:var(--brand-soft); color:var(--brand-hover);}
+.icon-btn.toggled svg{stroke:var(--brand-hover);}
+.icon-btn.primary{background:var(--brand); color:var(--on-brand);}
+.icon-btn.primary:hover{background:var(--brand-hover);}
+/* Play/Pausa es un glifo sólido (barras/triángulo), no un ícono de línea:
+   con fill:none del resto de .icon-btn quedaría prácticamente invisible. */
+.icon-btn.primary svg{fill:currentColor; stroke:none;}
+
+/* ---------------- tool rail (flotante, minimalista) ---------------- */
+/* Cápsula angosta de solo-iconos: sin texto visible, sombra chica para
+   diferenciar del fondo sin pesar. La etiqueta aparece como tooltip lateral
+   al hover/focus (.tip), nunca ocupa espacio en el layout. */
+.rail{
+  position:fixed; left:16px; top:50%; transform:translateY(-50%); z-index:100;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:999px;
+  padding:8px;
+  box-shadow:var(--shadow-sm);
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.rail button{
+  position:relative;
+  width:40px; height:40px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--muted);
+  background:transparent; border:none; border-radius:50%;
+  cursor:pointer; padding:0;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.rail button:hover, .rail button:focus-visible{background:var(--surface-hover); color:var(--text);}
+.rail button svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.rail button.toggled{background:var(--brand-soft); color:var(--brand-hover);}
+.rail hr{width:22px; border:none; border-top:1px solid var(--border); margin:2px 0;}
+
+/* Tooltip: pastilla que se desliza desde el borde del rail, nunca empuja layout. */
+.rail button .tip, .shapes-panel button .tip{
+  position:absolute; z-index:1;
+  background:var(--surface-2); color:var(--text); border:1px solid var(--border);
+  font-size:var(--fs-xs); font-weight:500; white-space:nowrap;
+  padding:4px 9px; border-radius:var(--r-sm);
+  box-shadow:var(--shadow-sm);
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.rail button .tip{
+  left:calc(100% + 10px); top:50%; transform:translateY(-50%) translateX(-4px);
+}
+.rail button:hover .tip, .rail button:focus-visible .tip{
+  opacity:1; visibility:visible; transform:translateY(-50%) translateX(0);
+}
+@media (prefers-reduced-motion: reduce){ .rail button .tip, .shapes-panel button .tip{transition:none;} }
+
+/* ---------------- flyout de figuras ---------------- */
+.shapes-panel{
+  position:fixed; left:78px; top:50%; transform:translateY(-50%); z-index:99;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:999px;
+  padding:8px;
+  box-shadow:var(--shadow-sm);
+  display:flex; flex-direction:row; align-items:center; gap:4px;
+}
+.shapes-panel button{
+  position:relative;
+  width:40px; height:40px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--muted);
+  background:transparent; border:none; border-radius:50%;
+  cursor:pointer; padding:0;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.shapes-panel button:hover, .shapes-panel button:focus-visible{background:var(--surface-hover); color:var(--text);}
+.shapes-panel button svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.shapes-panel button.toggled{background:var(--brand-soft); color:var(--brand-hover);}
+.shapes-panel button .tip{
+  left:50%; top:calc(100% + 10px); transform:translateX(-50%) translateY(-4px);
+}
+.shapes-panel button:hover .tip, .shapes-panel button:focus-visible .tip{
+  opacity:1; visibility:visible; transform:translateX(-50%) translateY(0);
+}
+
+/* ---------------- stage ---------------- */
+.stage{flex:1; display:flex; position:relative; background:var(--bg); overflow:hidden;}
+#wrap{position:relative; width:100%; height:100%; overflow:hidden;}
+#cv{width:100%; height:100%; display:block; cursor:default; touch-action:none;}
+#editBox{
+  position:absolute; display:none;
+  background:var(--surface); color:var(--text);
+  border:1px solid var(--brand); border-radius:var(--r-sm);
+  padding:5px 9px;
+  font-family:var(--font-sans); font-size:var(--fs-lg); font-weight:500;
+  text-align:center; resize:none; overflow:hidden; z-index:5;
+  box-shadow:var(--shadow-lg);
+}
+
+/* ---------------- icon drawer ---------------- */
+#iconDrawer{
+  position:fixed; left:78px; top:116px; bottom:auto; width:248px; z-index:20;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:14px; overflow-y:auto; box-shadow:var(--shadow-lg);
+}
+#iconDrawer h4{
+  font-size:var(--fs-xs); font-weight:600; text-transform:uppercase;
+  letter-spacing:var(--tracking-caps); color:var(--muted); margin:14px 0 7px;
+}
+#iconDrawer h4:first-child{margin-top:0;}
+.iconGrid{display:grid; grid-template-columns:repeat(4,1fr); gap:4px;}
+.iconGrid button{
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:7px 2px; font-size:var(--fs-xs); color:var(--muted); height:auto;
+  background:transparent; border-color:transparent;
+}
+.iconGrid button:hover{background:var(--surface-hover); color:var(--text);}
+.iconGrid img{width:28px; height:28px;}
+
+/* ---------------- panel de propiedades ---------------- */
+aside{
+  width:264px; flex-shrink:0;
+  background:var(--surface); border-left:1px solid var(--border);
+  padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:18px;
+}
+aside h3{
+  font-size:var(--fs-xs); font-weight:600; text-transform:uppercase;
+  letter-spacing:var(--tracking-caps); color:var(--muted); margin-bottom:10px;
+}
+.row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;}
+.row label{color:var(--muted); font-size:var(--fs-sm);}
+.row input[type=number]{
+  width:66px; background:var(--surface-2); color:var(--text);
+  border:1px solid var(--border); border-radius:var(--r-sm);
+  padding:5px 7px; font-size:var(--fs-sm);
+}
+.row select{width:122px; padding:5px 24px 5px 8px;}
+
+/* El track nativo se pinta blanco pase lo que pase con color-scheme; se estiliza
+   a mano para que el slider siga los tokens en cualquier navegador. */
+.row input[type=range]{
+  width:110px; height:16px; appearance:none; background:transparent; cursor:pointer;
+}
+.row input[type=range]::-webkit-slider-runnable-track{height:4px; border-radius:99px; background:var(--border-strong);}
+.row input[type=range]::-webkit-slider-thumb{
+  appearance:none; width:14px; height:14px; margin-top:-5px;
+  border-radius:50%; background:var(--brand); border:2px solid var(--surface);
+  box-shadow:var(--shadow-sm);
+}
+.row input[type=range]:hover::-webkit-slider-thumb{background:var(--brand-hover);}
+.row input[type=range]::-moz-range-track{height:4px; border-radius:99px; background:var(--border-strong);}
+.row input[type=range]::-moz-range-thumb{width:14px; height:14px; border-radius:50%; background:var(--brand); border:2px solid var(--surface);}
+.row input[type=range]:hover::-moz-range-thumb{background:var(--brand-hover);}
+
+/* El checkbox nativo ignora los tokens y queda fuera del sistema en ambos temas. */
+.row input[type=checkbox]{
+  appearance:none; width:17px; height:17px; flex-shrink:0; cursor:pointer; position:relative;
+  background:var(--surface-2); border:1px solid var(--border-strong); border-radius:5px;
+  transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.row input[type=checkbox]:hover{border-color:var(--brand-hover);}
+.row input[type=checkbox]:checked{background:var(--brand); border-color:var(--brand);}
+.row input[type=checkbox]:checked::after{
+  content:''; position:absolute; left:5px; top:1.5px; width:4px; height:8px;
+  border:solid var(--on-brand); border-width:0 2px 2px 0; transform:rotate(45deg);
+}
+@media (prefers-reduced-motion: reduce){ .row input[type=checkbox]{transition:none;} }
+
+.swatches{display:flex; flex-wrap:wrap; gap:7px;}
+.swatch{
+  width:24px; height:24px; border-radius:var(--r-sm);
+  border:none; padding:0; cursor:pointer;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
+  transition:transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.swatch:hover{transform:scale(1.08);}
+.swatch.sel{box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--brand-hover);}
+@media (prefers-reduced-motion: reduce){ .swatch{transition:none;} .swatch:hover{transform:none;} }
+textarea#lblEdit{
+  width:100%; background:var(--surface-2); color:var(--text);
+  border:1px solid var(--border); border-radius:var(--r-sm);
+  padding:8px; font-family:inherit; font-size:var(--fs-sm);
+  resize:vertical; min-height:44px;
+}
+.hint{color:var(--muted); font-size:var(--fs-sm); line-height:1.55;}
+.danger{color:var(--danger);}
+.wfull{width:100%; margin-top:6px;}
+.btnGrid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;}
+
+/* ---------------- barra de páginas ---------------- */
+footer{
+  display:flex; align-items:center; gap:4px; padding:0 10px; height:42px; flex-shrink:0;
+  background:var(--surface); border-top:1px solid var(--border); overflow-x:auto;
+}
+footer .tab{
+  display:flex; align-items:center; gap:8px; padding:6px 11px;
+  border:1px solid var(--border); border-radius:var(--r-md);
+  background:transparent; color:var(--muted);
+  cursor:pointer; white-space:nowrap; font-size:var(--fs-sm);
+}
+footer .tab:hover{background:var(--surface-hover); color:var(--text);}
+footer .tab.active{
+  background:var(--brand-soft); color:var(--brand-hover); border-color:var(--brand-edge); font-weight:500;
+}
+footer .tab .x{opacity:.5; padding:0 1px; line-height:1;}
+footer .tab .x:hover{opacity:1; color:var(--danger);}
+
+/* ---------------- modal ---------------- */
+.overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.6);
+  display:flex; align-items:center; justify-content:center; z-index:50;
+}
+.card{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-xl); padding:24px 28px; min-width:340px;
+  box-shadow:var(--shadow-lg);
+}
+.card h2{font-size:17px; font-weight:600; letter-spacing:-.02em; margin-bottom:14px;}
+#bar{width:100%; height:8px; background:var(--surface-2); border-radius:99px; overflow:hidden; margin-top:12px;}
+#barFill{height:100%; width:0%; background:var(--brand); border-radius:99px; transition:width .15s var(--ease);}
+@media (prefers-reduced-motion: reduce){ #barFill{transition:none;} }
+.card .actions{display:flex; justify-content:flex-end; gap:8px; margin-top:18px;}
+kbd{
+  font-family:var(--font-mono); font-size:var(--fs-xs);
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--r-sm); padding:1px 5px;
+}
+
+/* ============ Responsive editor ============ */
+@media (max-width: 700px) {
+  header { gap: 4px; padding: 8px; }
+  header .logo { margin-right: 4px; gap: 7px; }
+  header .logo .logo-mark { width: 28px; height: 28px; }
+  header .logo .wordmark { font-size: 17px; }
+  main { flex-direction: column; }
+  .rail { left:8px; top:auto; bottom:52px; transform:none; }
+  .shapes-panel { left:8px; top:auto; bottom:110px; flex-direction:row; transform:none; }
+  #iconDrawer { left:6px; right:6px; width:auto; top:auto; bottom:48px; }
+  .stage { padding: 0; }
+  #wrap { width:100%; height:100%; }
+  aside { display: none; }
+}
+@media (min-width: 701px) and (max-width: 1024px) {
+  aside { width: 216px; }
+  .row input[type=range] { width: 90px; }
+  .row select { width: 104px; }
+}
+

@@ -1,4 +1,4 @@
-import { useEditorStore } from '../../stores/editor-store'
+import { useEditorStore } from '../../lib/stores/editor-store'
 
 export function PagesBar() {
   const engine = useEditorStore(s => s.engine)

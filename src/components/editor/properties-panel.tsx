@@ -1,5 +1,5 @@
 import { PALETTE } from '../../canvas/config'
-import { useEditorStore } from '../../stores/editor-store'
+import { useEditorStore } from '../../lib/stores/editor-store'
 import type { Edge, FlowDir, Node, Route, Side } from '../../canvas/types'
 
 function NodeProperties({ node }: { node: Node }) {
@@ -175,16 +175,7 @@ export function PropertiesPanel() {
               <button className="wfull danger" onClick={() => engine.sel.deleteSel()}>Eliminar</button>
             </div>
           )
-          : (
-            <div>
-              <h3>Sin selección</h3>
-              <p className="hint">
-                Elige una forma en la barra izquierda y haz clic en el lienzo.
-                Doble clic sobre un nodo para editar su texto. Pasa el cursor sobre
-                un nodo y arrastra una de sus flechas azules para conectarlo.
-              </p>
-            </div>
-          )}
+          : <div><h3>Sin selección</h3></div>}
       <AnimationSettings />
     </aside>
   )

@@ -1,5 +1,5 @@
 import { ICONS, iconURL } from '../../canvas/config'
-import { useEditorStore } from '../../stores/editor-store'
+import { useEditorStore } from '../../lib/stores/editor-store'
 
 const GROUPS = ['General', 'GCP', 'AWS', 'Azure']
 

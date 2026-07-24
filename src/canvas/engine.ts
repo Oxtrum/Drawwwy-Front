@@ -1,5 +1,6 @@
 'use strict'
 
+import { resolveTheme } from './config'
 import { edgePoints, pointAt } from './geometry'
 import { attachInteraction } from './interaction'
 import { render } from './render'
@@ -172,7 +173,7 @@ export class CanvasEngine {
   }
 
   setTheme(theme: string): void {
-    this.state.doc.theme = theme
+    this.state.doc.theme = resolveTheme(theme)
     this.state.scheduleAutosave()
     this.notify()
   }

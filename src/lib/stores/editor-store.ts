@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CanvasEngine, type EditBox } from '../canvas/engine'
+import { CanvasEngine, type EditBox } from '../../canvas/engine'
 
 interface EditorStore {
   engine: CanvasEngine
@@ -7,9 +7,11 @@ interface EditorStore {
   editBox: EditBox | null
   iconDrawerOpen: boolean
   toggleIconDrawer: (open?: boolean) => void
+  shapesPanelOpen: boolean
+  toggleShapesPanel: (open?: boolean) => void
 }
 
-const engine = new CanvasEngine()
+export const engine = new CanvasEngine()
 
 export const useEditorStore = create<EditorStore>(set => ({
   engine,
@@ -17,6 +19,8 @@ export const useEditorStore = create<EditorStore>(set => ({
   editBox: null,
   iconDrawerOpen: false,
   toggleIconDrawer: open => set(s => ({ iconDrawerOpen: open ?? !s.iconDrawerOpen })),
+  shapesPanelOpen: false,
+  toggleShapesPanel: open => set(s => ({ shapesPanelOpen: open ?? !s.shapesPanelOpen })),
 }))
 
 engine.onChange = () => useEditorStore.setState(s => ({ version: s.version + 1 }))

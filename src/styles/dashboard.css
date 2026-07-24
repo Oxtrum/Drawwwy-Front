@@ -1,0 +1,108 @@
+/* ============================================================
+   Dashboard — lista de boards, estilo Miro.
+   Superficies planas, borde de 1px, elevación con sombra sólida al hover.
+   Sin blur, sin glow de color. Misma paleta de tokens que el editor.
+   ============================================================ */
+
+/* Clase propia, no el selector `header` genérico: este archivo carga después
+   de index.css y pisaría también el header del editor por orden de cascada. */
+.dashboard-header{
+  display:flex; align-items:center; gap:8px;
+  padding:0 24px; height:60px; flex-shrink:0;
+  background:var(--surface); border-bottom:1px solid var(--border);
+}
+
+.dashboard{
+  flex:1; width:100%;
+  max-width:1360px; margin:0 auto;
+  padding:32px 32px 64px;
+}
+
+.dashboard-grid{
+  display:grid; grid-template-columns:repeat(4, 1fr); gap:20px;
+}
+
+.project-card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
+  overflow:hidden; cursor:pointer;
+  transition:border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.project-card:hover{border-color:var(--border-strong); box-shadow:var(--shadow-sm); transform:translateY(-1px);}
+@media (prefers-reduced-motion: reduce){ .project-card{transition:none;} .project-card:hover{transform:none;} }
+
+.project-card .preview{
+  aspect-ratio:4 / 3;
+  background-color:var(--bg);
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size:22px 22px;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+}
+.project-card .preview span{
+  font-size:15px; font-weight:600; color:var(--muted); text-align:center;
+  letter-spacing:-.01em;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+
+.project-card .meta{padding:12px 8px 14px 14px; display:flex; flex-direction:column; gap:3px;}
+
+.name-row{display:flex; align-items:center; justify-content:space-between; gap:6px; min-height:30px;}
+.project-card .name{
+  font-weight:600; font-size:var(--fs-md); color:var(--text);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-radius:var(--r-sm); padding:2px 4px; margin:-2px -4px;
+}
+.project-card .name:hover{background:var(--surface-hover);}
+.project-card .name-input{
+  font:inherit; font-weight:600; font-size:var(--fs-md); color:var(--text);
+  background:var(--surface-2); border:1px solid var(--brand); border-radius:var(--r-sm);
+  padding:2px 5px; margin:-2px -5px; width:100%;
+}
+.project-card .date{font-size:var(--fs-xs); color:var(--muted);}
+
+.ctx-wrap{position:relative; flex-shrink:0;}
+.menu-btn{
+  width:26px; height:26px; opacity:0;
+  background:transparent; border-color:transparent;
+}
+.project-card:hover .menu-btn, .menu-btn[aria-expanded="true"]{opacity:1;}
+.menu-btn svg{width:16px; height:16px;}
+
+.ctx-menu{
+  position:absolute; right:0; top:calc(100% + 4px); z-index:30;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-md);
+  box-shadow:var(--shadow-lg); padding:4px; min-width:150px;
+}
+.ctx-menu button{
+  width:100%; justify-content:flex-start; text-align:left;
+  background:transparent; border-color:transparent; font-weight:500;
+  padding:7px 9px;
+}
+.ctx-menu button:hover{background:var(--surface-hover);}
+.ctx-menu button.danger{color:var(--danger);}
+
+button.danger-solid{
+  background:var(--danger); border-color:var(--danger); color:#fff; font-weight:600;
+}
+button.danger-solid:hover{filter:brightness(1.08);}
+
+.dashboard-empty{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px; padding:120px 20px; text-align:center; color:var(--muted);
+}
+.dashboard-empty svg{width:52px; height:52px; opacity:.5;}
+.dashboard-empty h2{font-size:19px; font-weight:600; color:var(--text); letter-spacing:-.02em;}
+.dashboard-empty p{max-width:360px; font-size:var(--fs-sm); line-height:1.55;}
+.dashboard-empty button{margin-top:8px;}
+
+@media (max-width: 700px) {
+  .dashboard-header{padding:0 16px; height:52px;}
+  .dashboard{padding:20px 16px 48px;}
+  .dashboard-grid{grid-template-columns:1fr; gap:14px;}
+  .menu-btn{opacity:1;}
+}
+
+@media (min-width: 701px) and (max-width: 1024px) {
+  .dashboard-grid{grid-template-columns:repeat(2, 1fr);}
+}

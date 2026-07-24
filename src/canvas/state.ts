@@ -1,6 +1,6 @@
 'use strict'
 
-import { GRID, PALETTE } from './config'
+import { DEFAULT_THEME, GRID, PALETTE, resolveTheme } from './config'
 import { edgePoints } from './geometry'
 import type { Bounds, Document, Edge, Node, Page, Settings, Shape } from './types'
 
@@ -56,7 +56,7 @@ export class DocumentState {
   private autosaveSuppressed = 0
 
   constructor() {
-    this.doc = { theme: 'dark', pages: [this.blankPage('Página 1')], cur: 0 }
+    this.doc = { theme: DEFAULT_THEME, pages: [this.blankPage('Página 1')], cur: 0 }
     this.settings = { speed: 0.5, dots: 3, build: false, stagger: 0.45, grid: true }
     if (this.hasAutosave()) {
       this.autosavePaused = true
@@ -211,7 +211,7 @@ export class DocumentState {
           ...e,
         })) as Edge[]
         this.doc = {
-          theme: legacy.theme || 'dark',
+          theme: resolveTheme(legacy.theme),
           cur: 0,
           pages: [{
             ...this.blankPage('Página 1'),
@@ -234,6 +234,8 @@ export class DocumentState {
         if (!e.route) e.route = 'straight'
       }))
       if (d.settings) Object.assign(this.settings, d.settings)
+      // Un documento guardado puede traer un tema ya retirado del sistema de diseño.
+      this.doc.theme = resolveTheme(this.doc.theme)
       this.doc.cur = DocumentState.clamp(this.doc.cur || 0, 0, this.doc.pages.length - 1)
       this.onProjectApplied?.()
     })

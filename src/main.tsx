@@ -2,8 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
+import './lib/stores/theme-store'
 import './styles/index.css'
-import './styles/editor.css'
+import './styles/dashboard.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

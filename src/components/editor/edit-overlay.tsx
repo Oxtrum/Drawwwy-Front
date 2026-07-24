@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useEditorStore } from '../../stores/editor-store'
+import { useEditorStore } from '../../lib/stores/editor-store'
 
 export function EditOverlay() {
   const engine = useEditorStore(s => s.engine)

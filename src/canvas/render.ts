@@ -1,9 +1,9 @@
 'use strict'
 
-import { ARROW_OFF, DIR, GRID, HANDLE, SIDES, THEMES, getImg, iconURL } from './config'
+import { ARROW_OFF, DIR, GRID, HANDLE, SIDES, canvasFont, getImg, iconURL, themeOf } from './config'
 import { edgePoints, pointAt, sidePoint, nearestAnchorSide } from './geometry'
 import { DocumentState } from './state'
-import type { Bounds, Edge, MarqueeState, Node, Settings } from './types'
+import type { Bounds, Edge, MarqueeState, Node, Settings, ThemeColors } from './types'
 import type { CanvasEngine } from './engine'
 
 export interface RenderOpts {
@@ -66,19 +66,19 @@ export function shapePath(c: Ctx, n: Node): void {
 }
 
 function drawLabelLines(c: Ctx, n: Node, theme: string, baseFs: number, cy: number): void {
-  const T = THEMES[theme]
+  const T = themeOf(theme)
   c.fillStyle = n.shape === 'text' ? n.color : T.text
   c.textAlign = 'center'
   c.textBaseline = 'middle'
   const lines = String(n.label).split('\n')
   let fs = n.fs || baseFs
-  c.font = `${fs}px Georgia, serif`
+  c.font = canvasFont(fs)
   if (!n.fs) {
     const maxW = Math.max(...lines.map(l => c.measureText(l).width), 1)
     const avail = n.w - 18
     if (maxW > avail) {
       fs = Math.max(10, fs * avail / maxW)
-      c.font = `${fs}px Georgia, serif`
+      c.font = canvasFont(fs)
     }
   }
   const lh = fs * 1.25
@@ -96,6 +96,7 @@ export function nodeCorners(n: Node): Array<[number, number]> {
 }
 
 export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: boolean, eng: CanvasEngine): void {
+  const T = themeOf(theme)
   const settings = eng.state.settings
   const a = nodeAlpha(n, t, settings)
   if (a <= 0) return
@@ -109,7 +110,7 @@ export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: bo
   if (n.shape === 'image' && n.img) {
     const im = getImg(n.img)
     if (im.complete && im.naturalWidth) {
-      if (glow > 0) { c.shadowColor = '#3aa7e8'; c.shadowBlur = 20 * glow }
+      if (glow > 0) { c.shadowColor = T.sel; c.shadowBlur = 20 * glow }
       c.drawImage(im, n.x - n.w / 2, n.y - n.h / 2, n.w, n.h)
       c.shadowBlur = 0
     }
@@ -126,7 +127,7 @@ export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: bo
     const ry = Math.min(16, h * 0.18)
     const top = y - h / 2
     const bot = y + h / 2
-    c.fillStyle = DocumentState.hexA(n.color, theme === 'crema' ? 0.16 : 0.18)
+    c.fillStyle = DocumentState.hexA(n.color, T.fillA)
     c.strokeStyle = n.color
     c.lineWidth = 2.5 + glow * 1.5
     if (glow > 0) { c.shadowColor = n.color; c.shadowBlur = 18 * glow }
@@ -142,7 +143,7 @@ export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: bo
   } else if (n.shape === 'text') {
     drawLabelLines(c, n, theme, 22, n.y)
   } else {
-    c.fillStyle = DocumentState.hexA(n.color, theme === 'crema' ? 0.16 : 0.18)
+    c.fillStyle = DocumentState.hexA(n.color, T.fillA)
     c.strokeStyle = n.color
     c.lineWidth = 2.5 + glow * 1.5
     if (glow > 0) { c.shadowColor = n.color; c.shadowBlur = 18 * glow }
@@ -154,12 +155,12 @@ export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: bo
 
   if (!isExport && eng.sel.selN.has(n.id)) {
     c.save()
-    c.setLineDash([6, 5]); c.strokeStyle = '#3aa7e8'; c.lineWidth = 1.5
+    c.setLineDash([6, 5]); c.strokeStyle = T.sel; c.lineWidth = 1.5
     c.strokeRect(n.x - n.w / 2 - 6, n.y - n.h / 2 - 6, n.w + 12, n.h + 12)
     c.setLineDash([])
     const s = eng.sel.singleSel()
     if (s && s.type === 'node' && s.obj && s.obj.id === n.id) {
-      c.fillStyle = '#fff'; c.strokeStyle = '#3aa7e8'; c.lineWidth = 1.5
+      c.fillStyle = T.light ? '#FFFFFF' : '#F8FAFC'; c.strokeStyle = T.sel; c.lineWidth = 1.5
       for (const [cx, cy] of nodeCorners(n)) {
         c.beginPath(); c.rect(cx - HANDLE / 2, cy - HANDLE / 2, HANDLE, HANDLE); c.fill(); c.stroke()
       }
@@ -185,14 +186,14 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
   if (a <= 0) return
   const pts = edgePoints(e, id => eng.state.nodeById(id))
   if (pts.length < 2) return
-  const T = THEMES[theme]
+  const T = themeOf(theme)
   const seld = !isExport && eng.sel.selE.has(e.id)
   const s = eng.sel.singleSel()
   const single = !isExport && !!(s && s.type === 'edge' && s.obj && s.obj.id === e.id)
   c.save()
   c.globalAlpha = a
   const lineCol = e.lineColor || T.edge
-  c.strokeStyle = seld ? '#3aa7e8' : lineCol
+  c.strokeStyle = seld ? T.sel : lineCol
   c.lineWidth = seld ? 2.6 : 2
   c.lineJoin = 'round'
   if (e.dashed) c.setLineDash([8, 7])
@@ -202,12 +203,12 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
   const last = pts[pts.length - 1]
   const prev = pts[pts.length - 2]
   if (e.endArrow !== false) {
-    arrowHead(c, last.x, last.y, Math.atan2(last.y - prev.y, last.x - prev.x), seld ? '#3aa7e8' : lineCol)
+    arrowHead(c, last.x, last.y, Math.atan2(last.y - prev.y, last.x - prev.x), seld ? T.sel : lineCol)
   }
   if (e.startArrow) {
     const f0 = pts[0]
     const f1 = pts[1]
-    arrowHead(c, f0.x, f0.y, Math.atan2(f0.y - f1.y, f0.x - f1.x), seld ? '#3aa7e8' : lineCol)
+    arrowHead(c, f0.x, f0.y, Math.atan2(f0.y - f1.y, f0.x - f1.x), seld ? T.sel : lineCol)
   }
   if (e.animated) {
     c.fillStyle = e.dotColor || A.color
@@ -230,7 +231,7 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
   if (e.label) {
     const m = pointAt(pts, 0.5)
     const efs = e.fs || 13
-    c.font = efs + 'px Georgia, serif'
+    c.font = canvasFont(efs)
     c.textAlign = 'center'
     c.textBaseline = 'middle'
     const w = c.measureText(e.label).width
@@ -242,22 +243,22 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
   if (single) {
     c.lineWidth = 1.6
     ;(e.waypoints || []).forEach(wp => {
-      c.fillStyle = '#3aa7e8'
+      c.fillStyle = T.sel
       c.beginPath(); c.arc(wp.x, wp.y, 6, 0, Math.PI * 2); c.fill()
-      c.strokeStyle = '#fff'; c.stroke()
+      c.strokeStyle = T.lblBg; c.stroke()
     })
     for (let i = 1; i < pts.length; i++) {
       const mx = (pts[i - 1].x + pts[i].x) / 2
       const my = (pts[i - 1].y + pts[i].y) / 2
-      c.fillStyle = theme === 'crema' ? '#f4eee1' : '#161616'
-      c.strokeStyle = '#3aa7e8'
+      c.fillStyle = T.lblBg
+      c.strokeStyle = T.sel
       c.beginPath(); c.arc(mx, my, 5, 0, Math.PI * 2); c.fill(); c.stroke()
     }
   }
   c.restore()
 }
 
-function drawSideArrows(c: Ctx, n: Node): void {
+function drawSideArrows(c: Ctx, n: Node, T: ThemeColors): void {
   c.save()
   for (const s of SIDES) {
     const p = sidePoint(n, s)
@@ -266,7 +267,7 @@ function drawSideArrows(c: Ctx, n: Node): void {
     const by = p.y + d.y * ARROW_OFF
     const ang = Math.atan2(d.y, d.x)
     c.translate(bx, by); c.rotate(ang)
-    c.fillStyle = 'rgba(58,167,232,.9)'
+    c.fillStyle = DocumentState.hexA(T.sel, 0.9)
     c.beginPath()
     c.moveTo(10, 0); c.lineTo(-4, -9); c.lineTo(-4, -3.5); c.lineTo(-12, -3.5)
     c.lineTo(-12, 3.5); c.lineTo(-4, 3.5); c.lineTo(-4, 9); c.closePath(); c.fill()
@@ -278,7 +279,7 @@ function drawSideArrows(c: Ctx, n: Node): void {
 export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = {}): void {
   const state = eng.state
   const theme = state.doc.theme
-  const T = THEMES[theme]
+  const T = themeOf(theme)
   const settings = state.settings
   const page = state.currentPage()
   const isExport = !!opts.export
@@ -331,29 +332,29 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
   for (const n of page.nodes) drawNode(c, n, t, theme, isExport, eng)
 
   if (eng.mode === 'select' && !eng.drag && !eng.resizing && !eng.wpDrag && !eng.connectDrag && !eng.marquee && !eng.pendingShape && !eng.pendingIcon) {
-    if (eng.hoverNode) drawSideArrows(c, eng.hoverNode)
+    if (eng.hoverNode) drawSideArrows(c, eng.hoverNode, T)
   }
   if (eng.connectDrag) {
     const A = state.nodeById(eng.connectDrag.fromId)
     if (A) {
       const p = sidePoint(A, eng.connectDrag.fromSide)
       c.save()
-      c.strokeStyle = '#3aa7e8'; c.setLineDash([6, 5]); c.lineWidth = 2 / eng.viewZoom
+      c.strokeStyle = T.sel; c.setLineDash([6, 5]); c.lineWidth = 2 / eng.viewZoom
       c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(eng.mouse.x, eng.mouse.y); c.stroke(); c.setLineDash([])
       if (eng.hoverNode && eng.hoverNode.id !== A.id) {
         const hv = eng.hoverNode
-        c.strokeStyle = '#3aa7e8'; c.lineWidth = 2.5 / eng.viewZoom
+        c.strokeStyle = T.sel; c.lineWidth = 2.5 / eng.viewZoom
         c.strokeRect(hv.x - hv.w / 2 - 4, hv.y - hv.h / 2 - 4, hv.w + 8, hv.h + 8)
         const near = nearestAnchorSide(hv, eng.mouse, 22)
         for (const s of SIDES) {
           const q = sidePoint(hv, s)
           c.beginPath(); c.arc(q.x, q.y, 6 / eng.viewZoom, 0, Math.PI * 2)
           if (s === near) {
-            c.fillStyle = '#3aa7e8'; c.fill()
-            c.strokeStyle = '#fff'; c.lineWidth = 1.6 / eng.viewZoom; c.stroke()
+            c.fillStyle = T.sel; c.fill()
+            c.strokeStyle = T.lblBg; c.lineWidth = 1.6 / eng.viewZoom; c.stroke()
           } else {
-            c.fillStyle = theme === 'crema' ? '#f4eee1' : '#161616'; c.fill()
-            c.strokeStyle = '#3aa7e8'; c.lineWidth = 1.6 / eng.viewZoom; c.stroke()
+            c.fillStyle = T.lblBg; c.fill()
+            c.strokeStyle = T.sel; c.lineWidth = 1.6 / eng.viewZoom; c.stroke()
           }
         }
       }
@@ -364,7 +365,7 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
     const A = state.nodeById(eng.connecting)
     if (A) {
       c.save()
-      c.strokeStyle = '#3aa7e8'; c.setLineDash([5, 5]); c.lineWidth = 2 / eng.viewZoom
+      c.strokeStyle = T.sel; c.setLineDash([5, 5]); c.lineWidth = 2 / eng.viewZoom
       c.beginPath(); c.moveTo(A.x, A.y); c.lineTo(eng.mouse.x, eng.mouse.y); c.stroke()
       c.restore()
     }
@@ -372,21 +373,12 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
   if (eng.marquee) {
     const r = normRect(eng.marquee)
     c.save()
-    c.fillStyle = 'rgba(58,167,232,.12)'
-    c.strokeStyle = '#3aa7e8'; c.lineWidth = 1 / eng.viewZoom
+    c.fillStyle = DocumentState.hexA(T.sel, 0.12)
+    c.strokeStyle = T.sel; c.lineWidth = 1 / eng.viewZoom
     c.fillRect(r.x, r.y, r.w, r.h); c.strokeRect(r.x, r.y, r.w, r.h)
     c.restore()
   }
-  if (page.nodes.length === 0) {
-    c.fillStyle = theme === 'crema' ? '#00000055' : '#ffffff44'
-    c.font = (20 / eng.viewZoom) + 'px Georgia, serif'
-    c.textAlign = 'center'
-    c.fillText(
-      'Elige una forma o icono a la izquierda y haz clic aquí',
-      (cv.width / 2 - eng.viewX) / eng.viewZoom,
-      (cv.height / 2 - eng.viewY) / eng.viewZoom,
-    )
-  }
+  
 
   c.restore()
 }

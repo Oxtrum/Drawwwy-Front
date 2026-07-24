@@ -4,29 +4,97 @@ import type { Point, Side, ThemeColors } from './types'
 
 export const W = 2560
 export const H = 1440
-export const GRID = 20
+export const GRID = 40
 export const ARROW_OFF = 24
 export const HANDLE = 7
+
+/**
+ * Tipografía del lienzo. Debe coincidir con --font-sans / --font-mono de styles/index.css:
+ * las etiquetas se dibujan en canvas 2D, que no hereda nada del CSS.
+ */
+export const FONT_SANS = '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+export const FONT_MONO = '"Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace'
+
+/** Fuente de un nodo/arista en px, lista para asignar a ctx.font. */
+export const canvasFont = (px: number, weight = 500): string =>
+  `${weight} ${px}px ${FONT_SANS}`
 
 export interface PaletteEntry {
   c: string
   n: string
 }
 
+/**
+ * Paleta categórica de los nodos. Anclada en el primario del sistema de diseño
+ * (#1763D0) e incorporando sus tres colores de estado; el resto son matices
+ * separados en tono para que dos categorías contiguas nunca se confundan,
+ * y todos legibles sobre el fondo claro y el oscuro.
+ */
 export const PALETTE: PaletteEntry[] = [
-  { c: '#6a9fb5', n: 'Servicio' },
-  { c: '#d08b5b', n: 'Eventos / Kafka' },
-  { c: '#7fa66b', n: 'Datos' },
-  { c: '#9b7fb5', n: 'IA' },
-  { c: '#c16a6a', n: 'Alerta' },
-  { c: '#8f8f8f', n: 'Externo' },
-  { c: '#c9b458', n: 'Config' },
+  { c: '#1763D0', n: 'Servicio' },
+  { c: '#0D9488', n: 'Datos' },
+  { c: '#7C3AED', n: 'Eventos' },
+  { c: '#DB2777', n: 'IA' },
+  { c: '#10B981', n: 'Éxito' },
+  { c: '#F59E0B', n: 'Cómputo' },
+  { c: '#EF4444', n: 'Alerta' },
+  { c: '#64748B', n: 'Externo' },
 ]
 
+/** Primario del sistema de diseño y sus variantes. */
+export const BRAND = {
+  primary: '#1763D0',
+  primaryLight: '#4A8BE8',
+  primaryDark: '#0F4491',
+} as const
+
 export const THEMES: Record<string, ThemeColors> = {
-  dark: { bg: '#161616', grid: 'rgba(255,255,255,.045)', text: '#ededed', edge: '#777', edgeLbl: '#bdbdbd', lblBg: '#161616' },
-  crema: { bg: '#f4eee1', grid: 'rgba(0,0,0,.06)', text: '#2b2620', edge: '#8a8275', edgeLbl: '#6b6457', lblBg: '#f4eee1' },
-  claro: { bg: '#ffffff', grid: 'rgba(0,0,0,.05)', text: '#111111', edge: '#888888', edgeLbl: '#444444', lblBg: '#ffffff' },
+  dark: {
+    light: false,
+    bg: '#141414',
+    grid: 'rgba(255,255,255,.06)',
+    text: '#F2F2F2',
+    edge: '#6B6B6B',
+    edgeLbl: '#9A9A9A',
+    lblBg: '#141414',
+    sel: BRAND.primaryLight,
+    hint: 'rgba(255,255,255,.4)',
+    fillA: 0.18,
+  },
+  claro: {
+    light: true,
+    bg: '#FFFFFF',
+    grid: 'rgba(15,23,42,.06)',
+    text: '#0F172A',
+    edge: '#94A3B8',
+    edgeLbl: '#64748B',
+    lblBg: '#FFFFFF',
+    sel: BRAND.primary,
+    hint: 'rgba(100,116,139,.75)',
+    fillA: 0.12,
+  },
+}
+
+export const DEFAULT_THEME = 'dark'
+
+export const THEME_LABELS: Record<string, string> = {
+  dark: 'Oscuro',
+  claro: 'Claro',
+}
+
+/** Temas retirados en el rediseño; los documentos guardados aún los referencian. */
+const THEME_ALIASES: Record<string, string> = { crema: 'claro', light: 'claro' }
+
+/** Resuelve un nombre de tema guardado a uno que exista hoy. */
+export function resolveTheme(name: string | undefined): string {
+  if (name && THEMES[name]) return name
+  if (name && THEME_ALIASES[name]) return THEME_ALIASES[name]
+  return DEFAULT_THEME
+}
+
+/** Nunca devuelve undefined, aunque el documento traiga un tema desconocido. */
+export function themeOf(name: string | undefined): ThemeColors {
+  return THEMES[resolveTheme(name)]
 }
 
 export const DIR: Record<Side, Point> = {
@@ -55,8 +123,13 @@ export const wheel = (col: string): string => {
 export const cylin = (col: string): string =>
   `<path d="M18 22 v20 c0 4 6 7 14 7 s14 -3 14 -7 V22" fill="none" stroke="${col}" stroke-width="3.6"/><ellipse cx="32" cy="22" rx="14" ry="6.5" fill="none" stroke="${col}" stroke-width="3.6"/>`
 
+/**
+ * Glifo dentro de un badge. Los iconos se sirven como data-URI y se pintan con
+ * <img>, contexto que no puede descargar fuentes externas: aquí solo valen
+ * familias del sistema, nunca Geist.
+ */
 export const txtG = (t: string, col: string, fs: number = 30): string =>
-  `<text x="32" y="33" font-size="${fs}" font-family="Georgia,serif" fill="${col}" text-anchor="middle" dominant-baseline="central">${t}</text>`
+  `<text x="32" y="33" font-size="${fs}" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="${col}" text-anchor="middle" dominant-baseline="central">${t}</text>`
 
 export const GCP_BLUE = '#4285f4'
 export const AWS_BG = '#232f3e'

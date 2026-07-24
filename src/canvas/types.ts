@@ -113,10 +113,18 @@ export interface SingleSelection {
 }
 
 export interface ThemeColors {
+  /** true en modos claros: invierte los contrastes de los adornos del canvas. */
+  light: boolean
   bg: string
   grid: string
   text: string
   edge: string
   edgeLbl: string
   lblBg: string
+  /** Color de las affordances de edición (selección, anclas, marquee, waypoints). */
+  sel: string
+  /** Texto del placeholder del lienzo vacío. */
+  hint: string
+  /** Opacidad del relleno de los nodos sobre este fondo. */
+  fillA: number
 }

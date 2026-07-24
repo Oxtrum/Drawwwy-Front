@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useEditorStore } from '../../stores/editor-store'
+import { useEditorStore } from '../../lib/stores/editor-store'
 import { EditOverlay } from './edit-overlay'
 
 export function CanvasStage() {
