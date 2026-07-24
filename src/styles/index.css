@@ -1,0 +1,12 @@
+:root{
+  --bg:#111213; --panel:#1b1d1f; --panel2:#222527; --line:#2e3134;
+  --text:#e8e6e1; --muted:#9a978f; --accent:#d08b5b; --accent2:#3aa7e8;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body,#root{height:100%;}
+body{
+  background:var(--bg); color:var(--text);
+  font:13px/1.45 "Segoe UI", system-ui, sans-serif;
+  overflow:hidden;
+}
+#root{display:flex; flex-direction:column;}

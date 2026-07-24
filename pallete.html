@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paleta de Colores</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Inter,Segoe UI,Arial,sans-serif;
+}
+
+body{
+    background:#f3f4f6;
+    color:#111827;
+    padding:40px;
+}
+
+h1{
+    margin-bottom:8px;
+    font-size:2.5rem;
+}
+
+.subtitle{
+    color:#6b7280;
+    margin-bottom:40px;
+}
+
+.section{
+    margin-bottom:48px;
+}
+
+.section h2{
+    margin-bottom:20px;
+    font-size:1.5rem;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:20px;
+}
+
+.card{
+    background:white;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 8px 24px rgba(0,0,0,.08);
+    border:1px solid #e5e7eb;
+}
+
+.color{
+    height:120px;
+}
+
+.info{
+    padding:16px;
+}
+
+.name{
+    font-weight:700;
+    margin-bottom:6px;
+}
+
+.hex{
+    font-family:Consolas,monospace;
+    color:#6b7280;
+}
+
+.footer{
+    margin-top:30px;
+    color:#94a3b8;
+    text-align:center;
+}
+</style>
+
+</head>
+<body>
+
+<h1>Paleta de Colores</h1>
+<p class="subtitle">Sistema de diseño</p>
+
+<div class="section">
+    <h2>🎨 Color Primario</h2>
+
+    <div class="grid">
+
+        <div class="card">
+            <div class="color" style="background:#1763d0;"></div>
+            <div class="info">
+                <div class="name">Principal</div>
+                <div class="hex">#1763D0</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#4a8be8;"></div>
+            <div class="info">
+                <div class="name">Hover / Claro</div>
+                <div class="hex">#4A8BE8</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#0f4491;"></div>
+            <div class="info">
+                <div class="name">Oscuro</div>
+                <div class="hex">#0F4491</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="section">
+    <h2>☀️ Modo Claro</h2>
+
+    <div class="grid">
+
+        <div class="card">
+            <div class="color" style="background:#ffffff;border-bottom:1px solid #ddd;"></div>
+            <div class="info">
+                <div class="name">Fondo</div>
+                <div class="hex">#FFFFFF</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#f8fafc;"></div>
+            <div class="info">
+                <div class="name">Superficie</div>
+                <div class="hex">#F8FAFC</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#0f172a;"></div>
+            <div class="info">
+                <div class="name">Texto Principal</div>
+                <div class="hex">#0F172A</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#64748b;"></div>
+            <div class="info">
+                <div class="name">Texto Secundario</div>
+                <div class="hex">#64748B</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#e2e8f0;"></div>
+            <div class="info">
+                <div class="name">Bordes</div>
+                <div class="hex">#E2E8F0</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="section">
+    <h2>🌙 Modo Oscuro</h2>
+
+    <div class="grid">
+
+        <div class="card">
+            <div class="color" style="background:#0b0f19;"></div>
+            <div class="info">
+                <div class="name">Fondo</div>
+                <div class="hex">#0B0F19</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#1e293b;"></div>
+            <div class="info">
+                <div class="name">Superficie</div>
+                <div class="hex">#1E293B</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#f8fafc;"></div>
+            <div class="info">
+                <div class="name">Texto Principal</div>
+                <div class="hex">#F8FAFC</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#94a3b8;"></div>
+            <div class="info">
+                <div class="name">Texto Secundario</div>
+                <div class="hex">#94A3B8</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#334155;"></div>
+            <div class="info">
+                <div class="name">Bordes</div>
+                <div class="hex">#334155</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="section">
+    <h2>✅ Estados</h2>
+
+    <div class="grid">
+
+        <div class="card">
+            <div class="color" style="background:#10b981;"></div>
+            <div class="info">
+                <div class="name">Éxito</div>
+                <div class="hex">#10B981</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#f59e0b;"></div>
+            <div class="info">
+                <div class="name">Advertencia</div>
+                <div class="hex">#F59E0B</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="color" style="background:#ef4444;"></div>
+            <div class="info">
+                <div class="name">Error / Alerta</div>
+                <div class="hex">#EF4444</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<p class="footer">
+Paleta de colores · Design System
+</p>
+
+</body>
+</html>
