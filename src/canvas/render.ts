@@ -1,7 +1,7 @@
 'use strict'
 
-import { ARROW_OFF, DIR, GRID, HANDLE, SIDES, canvasFont, getImg, iconURL, themeOf } from './config'
-import { edgePoints, pointAt, sidePoint, nearestAnchorSide } from './geometry'
+import { ARROW_OFF, DIR, GRID, HANDLE, ICONS, PALETTE, SIDES, canvasFont, getImg, iconURL, themeOf } from './config'
+import { edgePoints, nearestAnchorSide, placementBounds, pointAt, sidePoint } from './geometry'
 import { DocumentState } from './state'
 import type { Bounds, Edge, MarqueeState, Node, Settings, ThemeColors } from './types'
 import type { CanvasEngine } from './engine'
@@ -330,6 +330,29 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
 
   for (const e of page.edges) drawEdge(c, e, t, theme, isExport, eng)
   for (const n of page.nodes) drawNode(c, n, t, theme, isExport, eng)
+
+  if (eng.placement) {
+    const placement = eng.placement
+    const shape = placement.shape || (placement.icon ? 'icon' : 'rect')
+    const b = placementBounds(placement.start, placement.current, shape)
+    const preview: Node = {
+      id: -1,
+      shape,
+      x: b.x + b.w / 2,
+      y: b.y + b.h / 2,
+      w: b.w,
+      h: b.h,
+      label: placement.icon ? (ICONS[placement.icon]?.n || '') : shape === 'text' ? 'Texto' : 'Nodo',
+      color: PALETTE[0].c,
+      pulse: false,
+      order: 0,
+      icon: placement.icon || undefined,
+    }
+    c.save()
+    c.globalAlpha = 0.72
+    drawNode(c, preview, t, theme, false, eng)
+    c.restore()
+  }
 
   if (eng.mode === 'select' && !eng.drag && !eng.resizing && !eng.wpDrag && !eng.connectDrag && !eng.marquee && !eng.pendingShape && !eng.pendingIcon) {
     if (eng.hoverNode) drawSideArrows(c, eng.hoverNode, T)

@@ -87,6 +87,13 @@ export interface DragState {
   wps: Array<{ w: Waypoint; dx: number; dy: number }>
 }
 
+export interface PlacementState {
+  shape: Shape | null
+  icon: string | null
+  start: Point
+  current: Point
+}
+
 export interface ResizeState {
   id: number
   fx: number

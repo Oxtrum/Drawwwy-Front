@@ -1,7 +1,7 @@
 'use strict'
 
 import { ARROW_OFF, DIR, ICONS, SIDES, W, H } from './config'
-import { edgePoints, nearestAnchorSide, pointAt, sideOfPoint, sidePoint } from './geometry'
+import { edgePoints, nearestAnchorSide, placementBounds, pointAt, sideOfPoint, sidePoint } from './geometry'
 import { nodeCorners, normRect } from './render'
 import { DocumentState } from './state'
 import { CLIP_PREFIX } from './selection'
@@ -125,14 +125,14 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     cv.setPointerCapture(ev.pointerId)
 
     if (eng.pendingShape || eng.pendingIcon) {
-      eng.sel.pushUndo()
-      let n: Node
-      if (eng.pendingIcon) n = eng.state.newNode('icon', p.x, p.y, { icon: eng.pendingIcon, label: ICONS[eng.pendingIcon].n })
-      else n = eng.state.newNode(eng.pendingShape!, p.x, p.y)
-      eng.sel.selectOnly('node', n.id)
-      eng.pendingShape = null
-      eng.pendingIcon = null
-      eng.notify()
+      // Esperamos hasta pointerup para distinguir un click de un click-arrastre.
+      // En el segundo caso, `start` y `current` son las esquinas opuestas del nodo.
+      eng.placement = {
+        shape: eng.pendingShape,
+        icon: eng.pendingIcon,
+        start: { ...p },
+        current: { ...p },
+      }
       return
     }
 
@@ -239,6 +239,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     const p = toWorld(eng, ev)
     eng.mouse.x = p.x
     eng.mouse.y = p.y
+    if (eng.placement) {
+      eng.placement.current = { ...p }
+      return
+    }
     if (eng.marquee) { eng.marquee.x1 = p.x; eng.marquee.y1 = p.y; return }
     if (eng.drag) {
       for (const id in eng.drag.offs) {
@@ -299,7 +303,37 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       return
     }
     const p = toWorld(eng, ev)
-    const hadDrag = !!(eng.drag || eng.resizing || eng.wpDrag)
+    const hadDrag = !!(eng.drag || eng.resizing || eng.wpDrag || eng.placement)
+    if (eng.placement) {
+      const placement = eng.placement
+      const dx = placement.current.x - placement.start.x
+      const dy = placement.current.y - placement.start.y
+      const dragged = Math.hypot(dx, dy) > 6 / eng.viewZoom
+
+      eng.sel.pushUndo()
+      let n: Node
+      if (placement.icon) {
+        n = eng.state.newNode('icon', placement.start.x, placement.start.y, {
+          icon: placement.icon,
+          label: ICONS[placement.icon].n,
+        })
+      } else {
+        n = eng.state.newNode(placement.shape!, placement.start.x, placement.start.y)
+      }
+
+      if (dragged) {
+        const b = placementBounds(placement.start, placement.current, n.shape)
+        n.x = DocumentState.snap(b.x + b.w / 2)
+        n.y = DocumentState.snap(b.y + b.h / 2)
+        n.w = b.w
+        n.h = b.h
+      }
+
+      eng.sel.selectOnly('node', n.id)
+      eng.pendingShape = null
+      eng.pendingIcon = null
+      eng.placement = null
+    }
     if (eng.connectDrag) {
       const tgt = hitNode(eng, p.x, p.y)
       if (tgt && tgt.id !== eng.connectDrag.fromId) {
@@ -334,6 +368,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       eng.marquee = null
     }
     eng.drag = null
+    eng.placement = null
     eng.resizing = null
     eng.wpDrag = null
     if (hadDrag) eng.state.scheduleAutosave()

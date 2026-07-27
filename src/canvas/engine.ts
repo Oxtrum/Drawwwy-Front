@@ -7,7 +7,7 @@ import { render } from './render'
 import { SelectionManager } from './selection'
 import { DocumentState } from './state'
 import type {
-  ConnectDragState, DragState, Edge, MarqueeState, Node, Point, ResizeState, Shape,
+  ConnectDragState, DragState, Edge, MarqueeState, Node, PlacementState, Point, ResizeState, Shape,
 } from './types'
 
 export interface PanDragState {
@@ -46,6 +46,7 @@ export class CanvasEngine {
   connecting: number | null = null
 
   drag: DragState | null = null
+  placement: PlacementState | null = null
   resizing: ResizeState | null = null
   wpDrag: WpDragState | null = null
   connectDrag: ConnectDragState | null = null

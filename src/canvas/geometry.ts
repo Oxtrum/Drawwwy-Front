@@ -1,10 +1,31 @@
 'use strict'
 
 import { DIR, SIDES } from './config'
-import type { Edge, Node, Point, PointAng, Side } from './types'
+import type { Bounds, Edge, Node, Point, PointAng, Shape, Side } from './types'
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t
 const clamp = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v))
+
+/** Calcula el rectángulo de un elemento que se está creando mediante arrastre. */
+export function placementBounds(start: Point, current: Point, shape: Shape): Bounds {
+  const dx = current.x - start.x
+  const dy = current.y - start.y
+  let w = Math.max(40, Math.round(Math.abs(dx)))
+  let h = Math.max(30, Math.round(Math.abs(dy)))
+  const aspect = shape === 'circle' ? 1 : shape === 'icon' ? 120 / 92 : shape === 'image' ? 220 / 160 : null
+
+  if (aspect) {
+    if (w / aspect > h) h = Math.max(30, Math.round(w / aspect))
+    else w = Math.max(40, Math.round(h * aspect))
+  }
+
+  return {
+    x: (start.x + current.x) / 2 - w / 2,
+    y: (start.y + current.y) / 2 - h / 2,
+    w,
+    h,
+  }
+}
 
 export function sidePoint(n: Node, s: Side): Point {
   switch (s) {
