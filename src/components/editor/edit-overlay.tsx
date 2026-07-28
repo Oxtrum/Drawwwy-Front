@@ -31,6 +31,9 @@ export function EditOverlay() {
         top: box.top,
         width: box.width,
         fontSize: box.fontSize,
+        fontWeight: box.bold ? 700 : undefined,
+        fontFamily: box.font,
+        textAlign: box.align,
       }}
       onChange={ev => {
         setValue(ev.target.value)

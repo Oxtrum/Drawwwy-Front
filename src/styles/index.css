@@ -152,6 +152,12 @@ header .logo .wordmark b{color:var(--brand-hover); font-weight:700;}
   font-size:var(--fs-sm); font-weight:450; color:var(--muted);
   padding-left:8px; border-left:1px solid var(--border);
   max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  cursor:text;
+}
+.board-name-input{
+  font-family:inherit; font-size:var(--fs-sm); font-weight:450; color:var(--text);
+  background:var(--surface-2); border:1px solid var(--brand-edge); border-radius:var(--r-sm);
+  padding:3px 7px; margin-left:8px; width:150px; outline:none;
 }
 .pill-divider{
   width:1px; height:20px; background:var(--border); flex-shrink:0;
@@ -255,13 +261,22 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 @media (prefers-reduced-motion: reduce){ .rail button .tip, .shapes-panel button .tip{transition:none;} }
 
 /* ---------------- flyout de figuras ---------------- */
+/* Columna angosta que se despliega junto al rail; entra deslizándose
+   desde la izquierda con una animación corta (abre "hacia la izquierda"
+   del lienzo, nunca empuja layout). */
+@keyframes flyoutIn{
+  from{ opacity:0; transform:translateX(-10px); }
+  to{ opacity:1; transform:translateX(0); }
+}
 .shapes-panel{
   position:fixed; left:78px; top:50%; transform:translateY(-50%); z-index:99;
   background:var(--surface); border:1px solid var(--border);
-  border-radius:999px;
+  border-radius:24px;
   padding:8px;
   box-shadow:var(--shadow-sm);
-  display:flex; flex-direction:row; align-items:center; gap:4px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  animation:flyoutIn .14s var(--ease);
+  animation-composition:accumulate;
 }
 .shapes-panel button{
   position:relative;
@@ -276,10 +291,15 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .shapes-panel button svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
 .shapes-panel button.toggled{background:var(--brand-soft); color:var(--brand-hover);}
 .shapes-panel button .tip{
-  left:50%; top:calc(100% + 10px); transform:translateX(-50%) translateY(-4px);
+  left:calc(100% + 10px); top:50%; transform:translateY(-50%) translateX(-4px);
 }
 .shapes-panel button:hover .tip, .shapes-panel button:focus-visible .tip{
-  opacity:1; visibility:visible; transform:translateX(-50%) translateY(0);
+  opacity:1; visibility:visible; transform:translateY(-50%) translateX(0);
+}
+.shapes-panel hr{width:22px; border:none; border-top:1px solid var(--border); margin:2px 0;}
+.shapes-panel .more-shapes-btn{color:var(--brand-hover);}
+.shapes-panel .more-shapes-btn svg{stroke-width:2.2;}
+@media (prefers-reduced-motion: reduce){ .shapes-panel{animation:none; animation-composition:unset;}
 }
 
 /* ---------------- stage ---------------- */
@@ -296,36 +316,41 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   box-shadow:var(--shadow-lg);
 }
 
-/* ---------------- icon drawer ---------------- */
-#iconDrawer{
-  position:fixed; left:78px; top:116px; bottom:auto; width:248px; z-index:20;
+/* ---------------- menu combinado de figuras + iconos ---------------- */
+/* Panel expandido que se abre desde el "+" del flyout de figuras: junta
+   figuras e iconos cloud en un solo menú con scroll propio, para no
+   competir en altura con la columna angosta de arriba. */
+.more-shapes-panel{
+  position:fixed; left:78px; top:96px; bottom:96px; width:300px; z-index:98;
   background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
-  padding:14px; overflow-y:auto; box-shadow:var(--shadow-lg);
+  padding:14px; overflow-y:auto; overflow-x:hidden; box-shadow:var(--shadow-lg);
+  animation:flyoutIn .14s var(--ease);
 }
-#iconDrawer h4{
+@media (prefers-reduced-motion: reduce){ .more-shapes-panel{animation:none;} }
+.more-shapes-panel h4{
   font-size:var(--fs-xs); font-weight:600; text-transform:uppercase;
   letter-spacing:var(--tracking-caps); color:var(--muted); margin:14px 0 7px;
 }
-#iconDrawer h4:first-child{margin-top:0;}
-.iconGrid{display:grid; grid-template-columns:repeat(4,1fr); gap:4px;}
-.iconGrid button{
+.more-shapes-panel h4:first-child{margin-top:0;}
+.more-shapes-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
+.more-shapes-header .close-btn{
+  width:42px; height:32px; border:none; background:transparent; color:var(--muted);
+  border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.more-shapes-header .close-btn:hover, .more-shapes-header .close-btn:focus-visible{background:var(--surface-hover); color:var(--text);}
+.more-shapes-header .close-btn svg{width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+.shapesGrid, .iconGrid{display:grid; grid-template-columns:repeat(4,1fr); gap:4px;}
+.shapesGrid button, .iconGrid button{
   display:flex; flex-direction:column; align-items:center; gap:4px;
   padding:7px 2px; font-size:var(--fs-xs); color:var(--muted); height:auto;
   background:transparent; border-color:transparent;
 }
-.iconGrid button:hover{background:var(--surface-hover); color:var(--text);}
+.shapesGrid button:hover, .iconGrid button:hover{background:var(--surface-hover); color:var(--text);}
+.shapesGrid button.toggled, .iconGrid button.toggled{background:var(--brand-soft); color:var(--brand-hover);}
+.shapesGrid button svg{width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
 .iconGrid img{width:28px; height:28px;}
 
-/* ---------------- panel de propiedades ---------------- */
-aside{
-  width:264px; flex-shrink:0;
-  background:var(--surface); border-left:1px solid var(--border);
-  padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:18px;
-}
-aside h3{
-  font-size:var(--fs-xs); font-weight:600; text-transform:uppercase;
-  letter-spacing:var(--tracking-caps); color:var(--muted); margin-bottom:10px;
-}
 .row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;}
 .row label{color:var(--muted); font-size:var(--fs-sm);}
 .row input[type=number]{
@@ -365,26 +390,159 @@ aside h3{
 }
 @media (prefers-reduced-motion: reduce){ .row input[type=checkbox]{transition:none;} }
 
-.swatches{display:flex; flex-wrap:wrap; gap:7px;}
-.swatch{
-  width:24px; height:24px; border-radius:var(--r-sm);
-  border:none; padding:0; cursor:pointer;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);
-  transition:transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-.swatch:hover{transform:scale(1.08);}
-.swatch.sel{box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--brand-hover);}
-@media (prefers-reduced-motion: reduce){ .swatch{transition:none;} .swatch:hover{transform:none;} }
-textarea#lblEdit{
-  width:100%; background:var(--surface-2); color:var(--text);
-  border:1px solid var(--border); border-radius:var(--r-sm);
-  padding:8px; font-family:inherit; font-size:var(--fs-sm);
-  resize:vertical; min-height:44px;
-}
 .hint{color:var(--muted); font-size:var(--fs-sm); line-height:1.55;}
 .danger{color:var(--danger);}
-.wfull{width:100%; margin-top:6px;}
-.btnGrid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;}
+
+/* ---------------- menú flotante de selección ---------------- */
+/* Reemplaza el panel derecho: aparece arriba de la figura/flecha seleccionada,
+   posicionado en cada frame (ver selection-toolbar.tsx) para seguir el drag/pan
+   sin depender de los re-renders de React. */
+.sel-toolbar-wrap{position:absolute; left:0; top:0; z-index:15; visibility:hidden;}
+.sel-toolbar{
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  box-shadow:var(--shadow-lg); animation:flyoutIn .12s var(--ease);
+}
+@media (prefers-reduced-motion: reduce){ .sel-toolbar{animation:none;} }
+.sel-toolbar-row{display:flex; align-items:center; gap:2px; padding:5px;}
+.sel-toolbar-row button{
+  position:relative; width:34px; height:34px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--muted); background:transparent; border:none; border-radius:9px;
+  cursor:pointer; padding:0;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.sel-toolbar-row button:hover{background:var(--surface-hover); color:var(--text);}
+.sel-toolbar-row button.toggled{background:var(--brand-soft); color:var(--brand-hover);}
+.sel-toolbar-row button svg{width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.sel-toolbar-sep{width:1px; height:20px; background:var(--border); margin:0 3px; flex-shrink:0;}
+.sel-count{font-size:var(--fs-sm); color:var(--muted); padding:0 8px; white-space:nowrap;}
+
+.sel-popover{
+  position:absolute; top:calc(100% + 8px); left:0; width:232px; z-index:16;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg); padding:14px;
+  max-height:min(70vh, 480px); overflow-y:auto;
+  animation:flyoutIn .12s var(--ease);
+}
+@media (prefers-reduced-motion: reduce){ .sel-popover{animation:none;} }
+
+.style-tabs{display:flex; gap:6px; margin-bottom:14px;}
+.style-tabs button{
+  flex:1; height:32px; display:flex; align-items:center; justify-content:center;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm);
+  color:var(--muted); cursor:pointer;
+}
+.style-tabs button svg{width:100%; height:8px; stroke:currentColor; stroke-width:2;}
+.style-tabs button:hover{background:var(--surface-hover); color:var(--text);}
+.style-tabs button.toggled{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-hover);}
+
+.flow-shape-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-bottom:14px;}
+.flow-shape-grid button{
+  aspect-ratio:1; height:auto; padding:0; display:flex; align-items:center; justify-content:center;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); color:var(--muted); cursor:pointer;
+}
+.flow-shape-grid button svg{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.flow-shape-grid button:hover{background:var(--surface-hover); color:var(--text);}
+.flow-shape-grid button.toggled{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-hover);}
+
+.tab-row{display:flex; gap:6px; margin-bottom:14px;}
+.tab-row button{
+  flex:1; height:32px; display:flex; align-items:center; justify-content:center;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm);
+  color:var(--muted); font-size:var(--fs-sm); cursor:pointer;
+}
+.tab-row button svg{width:18px; height:18px; stroke:currentColor; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round;}
+.tab-row button:hover{background:var(--surface-hover); color:var(--text);}
+.tab-row button.toggled{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-hover);}
+
+.style-slider{margin-bottom:14px;}
+.style-slider-head{display:flex; justify-content:space-between; font-size:var(--fs-sm); color:var(--muted); margin-bottom:6px;}
+.style-slider input[type=range]{width:100%;}
+
+.switch-row{
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:var(--fs-sm); color:var(--text); cursor:pointer; margin-bottom:14px;
+}
+.switch-row .switch{position:relative; width:34px; height:20px; flex-shrink:0;}
+.switch-row .switch input{position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; z-index:1;}
+.switch-track{
+  position:absolute; inset:0; background:var(--border-strong); border-radius:999px;
+  transition:background var(--dur) var(--ease);
+}
+.switch-track::after{
+  content:''; position:absolute; top:2px; left:2px; width:16px; height:16px;
+  border-radius:50%; background:#fff; box-shadow:var(--shadow-sm);
+  transition:transform var(--dur) var(--ease);
+}
+.switch-row .switch input:checked + .switch-track{background:var(--brand);}
+.switch-row .switch input:checked + .switch-track::after{transform:translateX(14px);}
+@media (prefers-reduced-motion: reduce){
+  .switch-track, .switch-track::after{transition:none;}
+}
+
+.no-fill-btn{
+  display:flex; align-items:center; gap:8px; width:100%; height:34px; padding:0 10px;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm);
+  color:var(--muted); font-size:var(--fs-sm); cursor:pointer; margin-bottom:6px;
+}
+.no-fill-btn svg{width:16px; height:16px; stroke:currentColor; stroke-width:1.8; fill:none; flex-shrink:0;}
+.no-fill-btn:hover{background:var(--surface-hover); color:var(--text);}
+.no-fill-btn.toggled{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-hover);}
+
+.style-section-head{
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:var(--fs-xs); font-weight:600; text-transform:uppercase;
+  letter-spacing:var(--tracking-caps); color:var(--muted); margin:14px 0 8px;
+}
+.style-section-head:first-of-type{margin-top:0;}
+.add-color{
+  position:relative; display:flex; align-items:center; gap:3px; cursor:pointer;
+  color:var(--brand-hover); text-transform:none; letter-spacing:0; font-weight:500;
+}
+.add-color svg{width:13px; height:13px; stroke:currentColor; stroke-width:2;}
+.add-color input[type=color]{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%;}
+
+.add-color-confirm{
+  display:flex; align-items:center; gap:8px; margin-bottom:12px;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm);
+  padding:6px 6px 6px 8px;
+}
+.add-color-preview{width:22px; height:22px; border-radius:50%; flex-shrink:0; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);}
+.add-color-accept{
+  flex:1; height:26px; border:none; border-radius:var(--r-sm);
+  background:var(--brand); color:#fff; font-size:var(--fs-xs); font-weight:600; cursor:pointer;
+}
+.add-color-accept:hover{background:var(--brand-hover);}
+.add-color-cancel{
+  width:26px; height:26px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; border-radius:var(--r-sm); color:var(--muted); cursor:pointer;
+}
+.add-color-cancel svg{width:14px; height:14px; stroke:currentColor; stroke-width:2;}
+.add-color-cancel:hover{background:var(--surface-hover); color:var(--text);}
+
+.color-grid{display:grid; grid-template-columns:repeat(6, 1fr); gap:8px;}
+.color-swatch{
+  position:relative; width:26px; height:26px; border-radius:50%; border:none; padding:0; cursor:pointer;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);
+  display:flex; align-items:center; justify-content:center;
+  transition:transform var(--dur) var(--ease);
+}
+.color-swatch:hover{transform:scale(1.1);}
+.color-swatch.sel{box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--brand-hover);}
+.color-swatch .check{width:13px; height:13px; stroke:#fff; stroke-width:3; fill:none; filter:drop-shadow(0 0 1px rgba(0,0,0,.5));}
+@media (prefers-reduced-motion: reduce){ .color-swatch{transition:none;} .color-swatch:hover{transform:none;} }
+
+/* ---------------- modal de animación ---------------- */
+.modal-backdrop{
+  position:fixed; inset:0; z-index:200; background:rgba(15,23,42,.35);
+  display:flex; align-items:center; justify-content:center;
+}
+.modal-card{
+  width:300px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg); padding:18px;
+}
+.modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+.modal-head h3{font-size:var(--fs-md); font-weight:600;}
 
 /* ---------------- barra de páginas ---------------- */
 footer{
@@ -425,6 +583,44 @@ kbd{
   border-radius:var(--r-sm); padding:1px 5px;
 }
 
+/* ---------------- menú contextual del lienzo (click derecho) ---------------- */
+/* `position:fixed` en coordenadas de cliente: se abre donde cae el click y no
+   necesita reproyectarse en pan/zoom (interaction.ts lo cierra en wheel/Escape/
+   click-fuera en vez de re-seguir la vista, a diferencia de .sel-toolbar). */
+.ctx-menu-wrap{position:fixed; z-index:200;}
+.ctx-menu{
+  width:230px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg); padding:5px; animation:flyoutIn .12s var(--ease);
+}
+@media (prefers-reduced-motion: reduce){ .ctx-menu{animation:none;} }
+
+.ctx-item-wrap{position:relative;}
+
+.ctx-item{
+  display:flex; align-items:center; gap:10px; width:100%;
+  background:transparent; border:none; border-radius:var(--r-sm);
+  padding:7px 9px; font-size:var(--fs-sm); font-weight:500; color:var(--text); text-align:left;
+}
+.ctx-item:hover:not(:disabled){background:var(--surface-hover);}
+.ctx-item.toggled{background:var(--brand-soft); color:var(--brand-hover);}
+.ctx-item:disabled{color:var(--muted); opacity:.45; cursor:default;}
+.ctx-item.danger{color:var(--danger);}
+.ctx-item-icon{display:flex; flex-shrink:0;}
+.ctx-item-icon svg{width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.ctx-item-label{flex:1; white-space:nowrap;}
+.ctx-item-shortcut{font-size:var(--fs-xs); color:var(--muted); white-space:nowrap;}
+.ctx-chevron{width:14px; height:14px; stroke:var(--muted); fill:none; stroke-width:1.8; flex-shrink:0;}
+
+.ctx-sep{height:1px; background:var(--border); margin:5px 7px;}
+
+.ctx-submenu{
+  position:absolute; top:-5px; width:210px; z-index:201;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg); padding:5px; animation:flyoutIn .12s var(--ease);
+}
+.ctx-submenu-right{left:calc(100% + 6px);}
+.ctx-submenu-left{right:calc(100% + 6px);}
+
 /* ============ Responsive editor ============ */
 @media (max-width: 700px) {
   header { gap: 4px; padding: 8px; }
@@ -434,14 +630,11 @@ kbd{
   main { flex-direction: column; }
   .rail { left:8px; top:auto; bottom:52px; transform:none; }
   .shapes-panel { left:8px; top:auto; bottom:110px; flex-direction:row; transform:none; }
-  #iconDrawer { left:6px; right:6px; width:auto; top:auto; bottom:48px; }
+  .more-shapes-panel { left:6px; right:6px; width:auto; top:auto; bottom:158px; }
   .stage { padding: 0; }
   #wrap { width:100%; height:100%; }
-  aside { display: none; }
 }
 @media (min-width: 701px) and (max-width: 1024px) {
-  aside { width: 216px; }
   .row input[type=range] { width: 90px; }
-  .row select { width: 104px; }
 }
 

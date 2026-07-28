@@ -16,6 +16,47 @@ export interface PageSnap {
 
 export const CLIP_PREFIX = 'drawwwy::'
 
+export type ArrangeDir = 'front' | 'forward' | 'backward' | 'back'
+
+function withId<T extends { id: number }>(arr: T[], ids: Set<number>, dir: ArrangeDir): T[] {
+  if (dir === 'front' || dir === 'back') {
+    const rest = arr.filter(x => !ids.has(x.id))
+    const moved = arr.filter(x => ids.has(x.id))
+    return dir === 'front' ? [...rest, ...moved] : [...moved, ...rest]
+  }
+  const out = arr.slice()
+  if (dir === 'forward') {
+    for (let i = out.length - 2; i >= 0; i--) {
+      if (ids.has(out[i].id) && !ids.has(out[i + 1].id)) [out[i], out[i + 1]] = [out[i + 1], out[i]]
+    }
+  } else {
+    for (let i = 1; i < out.length; i++) {
+      if (ids.has(out[i].id) && !ids.has(out[i - 1].id)) [out[i], out[i - 1]] = [out[i - 1], out[i]]
+    }
+  }
+  return out
+}
+
+/** true si mover en `dir` cambiaría el orden (usado para deshabilitar los ítems del menú). */
+function arrangeMoves<T extends { id: number }>(arr: T[], ids: Set<number>, dir: ArrangeDir): boolean {
+  if (!ids.size) return false
+  const n = arr.length
+  if (dir === 'front') {
+    for (let i = n - ids.size; i < n; i++) if (!ids.has(arr[i].id)) return true
+    return false
+  }
+  if (dir === 'back') {
+    for (let i = 0; i < ids.size; i++) if (!ids.has(arr[i].id)) return true
+    return false
+  }
+  if (dir === 'forward') {
+    for (let i = 0; i < n - 1; i++) if (ids.has(arr[i].id) && !ids.has(arr[i + 1].id)) return true
+    return false
+  }
+  for (let i = 1; i < n; i++) if (ids.has(arr[i].id) && !ids.has(arr[i - 1].id)) return true
+  return false
+}
+
 export class SelectionManager {
   selN = new Set<number>()
   selE = new Set<number>()
@@ -75,7 +116,9 @@ export class SelectionManager {
     const page = this.state.currentPage()
     const ns = page.nodes.filter(n => this.selN.has(n.id)).map(n => DocumentState.deep(n))
     const ids = new Set(ns.map(n => n.id))
-    const es = page.edges.filter(e => ids.has(e.from) && ids.has(e.to)).map(e => DocumentState.deep(e))
+    const es = page.edges
+      .filter(e => this.selE.has(e.id) || (ids.has(e.from) && ids.has(e.to)))
+      .map(e => DocumentState.deep(e))
     this.clip = { nodes: ns, edges: es }
     try {
       navigator.clipboard?.writeText(CLIP_PREFIX + JSON.stringify(this.clip)).catch(() => {})
@@ -91,7 +134,7 @@ export class SelectionManager {
 
   pasteClip(): void {
     const clip = this.clip
-    if (!clip || !clip.nodes.length) return
+    if (!clip || (!clip.nodes.length && !clip.edges.length)) return
     this.pushUndo()
     const page = this.state.currentPage()
     const map: Record<number, number> = {}
@@ -109,8 +152,8 @@ export class SelectionManager {
     clip.edges.forEach(e => {
       const c = DocumentState.deep(e)
       c.id = page.nextId++
-      c.from = map[e.from]
-      c.to = map[e.to]
+      c.from = map[e.from] ?? e.from
+      c.to = map[e.to] ?? e.to
       ;(c.waypoints || []).forEach(w => { w.x += GRID; w.y += GRID })
       page.edges.push(c)
       this.selE.add(c.id)
@@ -125,6 +168,21 @@ export class SelectionManager {
     this.copySel()
     this.pasteClip()
     this.clip = keep
+  }
+
+  canArrange(dir: ArrangeDir): boolean {
+    const page = this.state.currentPage()
+    return arrangeMoves(page.nodes, this.selN, dir) || arrangeMoves(page.edges, this.selE, dir)
+  }
+
+  arrange(dir: ArrangeDir): void {
+    if (!this.canArrange(dir)) return
+    this.pushUndo()
+    const page = this.state.currentPage()
+    if (this.selN.size) page.nodes = withId(page.nodes, this.selN, dir)
+    if (this.selE.size) page.edges = withId(page.edges, this.selE, dir)
+    this.state.scheduleAutosave()
+    this.notify()
   }
 
   deleteSel(): void {

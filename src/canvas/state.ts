@@ -1,11 +1,12 @@
 'use strict'
 
-import { DEFAULT_THEME, GRID, PALETTE, resolveTheme } from './config'
+import { DEFAULT_THEME, GRID, PALETTE, iconBg, resolveTheme } from './config'
 import { edgePoints } from './geometry'
 import type { Bounds, Document, Edge, Node, Page, Settings, Shape } from './types'
 
 interface LegacyEdge extends Partial<Edge> {
   bidir?: boolean
+  dashed?: boolean
 }
 
 interface LegacyState {
@@ -56,7 +57,7 @@ export class DocumentState {
   private autosaveSuppressed = 0
 
   constructor() {
-    this.doc = { theme: DEFAULT_THEME, pages: [this.blankPage('Página 1')], cur: 0 }
+    this.doc = { name: 'Tablero sin título', theme: DEFAULT_THEME, pages: [this.blankPage('Página 1')], cur: 0 }
     this.settings = { speed: 0.5, dots: 3, build: false, stagger: 0.45, grid: true }
     if (this.hasAutosave()) {
       this.autosavePaused = true
@@ -105,6 +106,7 @@ export class DocumentState {
   newNode(shape: Shape, x: number, y: number, extra: Partial<Node> = {}): Node {
     const page = this.currentPage()
     const [w, h] = NODE_SIZES[shape]
+    const defaultColor = shape === 'icon' && extra.icon ? (iconBg[extra.icon] || PALETTE[0].c) : PALETTE[0].c
     const n: Node = {
       id: page.nextId++,
       shape,
@@ -113,7 +115,12 @@ export class DocumentState {
       w,
       h,
       label: shape === 'text' ? 'Texto' : (shape === 'icon' || shape === 'image') ? '' : 'Nodo',
-      color: PALETTE[0].c,
+      color: defaultColor,
+      fill: null,
+      fillOpacity: 1,
+      borderWidth: 2.5,
+      lineStyle: 'solid',
+      opacity: 1,
       pulse: false,
       order: page.nodes.length,
       ...extra,
@@ -123,7 +130,6 @@ export class DocumentState {
   }
 
   newEdge(a: number, b: number, opts: Partial<Edge> = {}): Edge | null {
-    if (a === b) return null
     const page = this.currentPage()
     const e: Edge = {
       id: page.nextId++,
@@ -135,7 +141,8 @@ export class DocumentState {
       waypoints: [],
       label: '',
       animated: true,
-      dashed: false,
+      lineStyle: 'solid',
+      lineWidth: 2,
       startArrow: false,
       endArrow: true,
       flowDir: 'normal',
@@ -153,8 +160,31 @@ export class DocumentState {
     return this.currentPage().edges.find(e => e.id === id)
   }
 
+  /** Colores distintos ya presentes en el documento (todas las páginas), en
+   *  orden de aparición. Alimenta la sección "Colores recientes" del selector:
+   *  no hay historial propio, se deriva de lo que ya está dibujado. */
+  usedColors(): string[] {
+    const seen = new Set<string>()
+    for (const page of this.doc.pages) {
+      for (const n of page.nodes) {
+        if (n.color) seen.add(n.color.toLowerCase())
+        if (n.fill) seen.add(n.fill.toLowerCase())
+      }
+      for (const e of page.edges) {
+        if (e.lineColor) seen.add(e.lineColor.toLowerCase())
+        if (e.dotColor) seen.add(e.dotColor.toLowerCase())
+      }
+    }
+    return [...seen]
+  }
+
   serializeProject(): ProjectFile {
     return { version: 3, app: 'drawwwy', doc: this.doc, settings: this.settings }
+  }
+
+  setProjectName(name: string): void {
+    this.doc.name = name
+    this.scheduleAutosave()
   }
 
   saveAutosave(force = false): void {
@@ -211,6 +241,7 @@ export class DocumentState {
           ...e,
         })) as Edge[]
         this.doc = {
+          name: 'Tablero sin título',
           theme: resolveTheme(legacy.theme),
           cur: 0,
           pages: [{
@@ -232,11 +263,15 @@ export class DocumentState {
         if (!e.flowDir) e.flowDir = 'normal'
         if (!e.waypoints) e.waypoints = []
         if (!e.route) e.route = 'straight'
+        if (!e.lineStyle) e.lineStyle = e.dashed ? 'dashed' : 'solid'
+        if (e.lineWidth === undefined) e.lineWidth = 2
       }))
       if (d.settings) Object.assign(this.settings, d.settings)
       // Un documento guardado puede traer un tema ya retirado del sistema de diseño.
       this.doc.theme = resolveTheme(this.doc.theme)
       this.doc.cur = DocumentState.clamp(this.doc.cur || 0, 0, this.doc.pages.length - 1)
+      // Autosaves de antes de que existiera el nombre de tablero no lo traen.
+      this.doc.name = this.doc.name || 'Tablero sin título'
       this.onProjectApplied?.()
     })
   }

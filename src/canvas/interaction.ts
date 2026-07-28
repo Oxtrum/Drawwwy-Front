@@ -8,6 +8,16 @@ import { CLIP_PREFIX } from './selection'
 import type { Edge, Node, Point, Side } from './types'
 import type { CanvasEngine } from './engine'
 
+/** Nudge de selección con flechas del teclado: 1px por tecla (10px con Shift),
+ *  sin snap a GRID, para poder acomodar con más precisión que arrastrando con
+ *  el mouse. */
+const ARROW_NUDGE: Record<string, [number, number]> = {
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+}
+
 export function toWorld(eng: CanvasEngine, ev: { clientX: number; clientY: number }): Point {
   const cv = eng.canvas
   if (!cv) return { x: 0, y: 0 }
@@ -98,21 +108,53 @@ export function addImageFromBlob(eng: CanvasEngine, blob: Blob, x = W / 2, y = H
   fr.readAsDataURL(blob)
 }
 
+/** Lee el portapapeles del sistema con la Clipboard API (requiere gesto del
+ *  usuario: click de menú o tecla). Cubre lo que el evento pasivo `paste` del
+ *  DOM no puede: pegar una imagen externa desde el menú contextual, donde
+ *  hacer click en "Pegar" nunca dispara un evento `paste` real. Devuelve
+ *  `true` si encontró algo pegable (imagen o el clip interno serializado). */
+export async function pasteFromSystemClipboard(eng: CanvasEngine, x: number, y: number): Promise<boolean> {
+  try {
+    const items = await navigator.clipboard?.read?.()
+    if (!items) return false
+    for (const item of items) {
+      const imgType = item.types.find(t => t.startsWith('image/'))
+      if (imgType) {
+        addImageFromBlob(eng, await item.getType(imgType), x, y)
+        return true
+      }
+    }
+    for (const item of items) {
+      if (!item.types.includes('text/plain')) continue
+      const txt = await (await item.getType('text/plain')).text()
+      if (!txt.startsWith(CLIP_PREFIX)) continue
+      try { eng.sel.clip = JSON.parse(txt.slice(CLIP_PREFIX.length)) } catch { continue }
+      eng.sel.pasteClip()
+      eng.notify()
+      return true
+    }
+  } catch {
+    // Sin permiso de portapapeles (o vacío): quien llama cae al clip interno.
+  }
+  return false
+}
+
 export function attachInteraction(eng: CanvasEngine): () => void {
   const cv = eng.canvas
   if (!cv) return () => {}
 
-  let wasRightDrag = false
+  let shiftHeld = false
 
   const onContextMenu = (ev: MouseEvent): void => {
-    if (wasRightDrag) ev.preventDefault()
+    ev.preventDefault()
   }
 
   const onPointerDown = (ev: PointerEvent): void => {
-    if (ev.button === 1 || ev.button === 2 || (ev.button === 0 && ev.altKey)) {
+    if (ev.button === 1 || ev.button === 2 || (ev.button === 0 && (ev.altKey || eng.mode === 'hand'))) {
       if (ev.button !== 2) ev.preventDefault()
       eng.panDrag = { x: ev.clientX, y: ev.clientY, startX: eng.viewX, startY: eng.viewY, isRight: ev.button === 2, moved: false }
       cv.setPointerCapture(ev.pointerId)
+      if (ev.button !== 2) cv.style.cursor = 'grabbing'
       return
     }
     if (ev.button !== 0) return
@@ -231,7 +273,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     if (eng.panDrag) {
       const dx = ev.clientX - eng.panDrag.x
       const dy = ev.clientY - eng.panDrag.y
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) eng.panDrag.moved = true
+      if (!eng.panDrag.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+        eng.panDrag.moved = true
+        cv.style.cursor = 'grabbing'
+      }
       eng.viewX = eng.panDrag.startX + dx
       eng.viewY = eng.panDrag.startY + dy
       return
@@ -278,12 +323,13 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       }
       return
     }
-    eng.hoverNode = hitNode(eng, p.x, p.y)
-    if (!eng.hoverNode) {
-      for (const nd of eng.state.currentPage().nodes) {
-        if (hitSideArrow(nd, p.x, p.y)) { eng.hoverNode = nd; break }
-      }
+    if (eng.mode === 'hand') { cv.style.cursor = 'grab'; return }
+    eng.hoverNode = null
+    const ns = eng.state.currentPage().nodes
+    for (let i = ns.length - 1; i >= 0; i--) {
+      if (hitSideArrow(ns[i], p.x, p.y)) { eng.hoverNode = ns[i]; break }
     }
+    if (!eng.hoverNode) eng.hoverNode = hitNode(eng, p.x, p.y)
     const single = eng.sel.singleSel()
     let cur = 'default'
     if (eng.pendingShape || eng.pendingIcon || eng.mode === 'connect' || eng.connectDrag) cur = 'crosshair'
@@ -295,9 +341,19 @@ export function attachInteraction(eng: CanvasEngine): () => void {
 
   const onPointerUp = (ev: PointerEvent): void => {
     if (eng.panDrag) {
-      if (eng.panDrag.isRight && eng.panDrag.moved) {
-        wasRightDrag = true
-        setTimeout(() => { wasRightDrag = false }, 50)
+      if (eng.panDrag.isRight && !eng.panDrag.moved) {
+        const p = toWorld(eng, ev)
+        const n = hitNode(eng, p.x, p.y)
+        const e = !n ? hitEdge(eng, p.x, p.y) : null
+        if (n) {
+          if (!eng.sel.selN.has(n.id)) eng.sel.selectOnly('node', n.id)
+        } else if (e) {
+          if (!eng.sel.selE.has(e.id)) eng.sel.selectOnly('edge', e.id)
+        } else {
+          eng.sel.clearSel()
+        }
+        eng.openContextMenu(ev.clientX, ev.clientY)
+        cv.style.cursor = 'default'
       }
       eng.panDrag = null
       return
@@ -336,9 +392,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     }
     if (eng.connectDrag) {
       const tgt = hitNode(eng, p.x, p.y)
-      if (tgt && tgt.id !== eng.connectDrag.fromId) {
+      if (tgt) {
         eng.sel.pushUndo()
-        const snapSide = nearestAnchorSide(tgt, p, 22)
+        const isSelf = tgt.id === eng.connectDrag.fromId
+        const snapSide = isSelf ? eng.connectDrag.fromSide : nearestAnchorSide(tgt, p, 22)
         const e = eng.state.newEdge(eng.connectDrag.fromId, tgt.id, {
           fromSide: eng.connectDrag.fromSide,
           toSide: snapSide,
@@ -401,7 +458,31 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     if (ctl && k === 'd') { ev.preventDefault(); eng.sel.dupSel(); eng.notify(); return }
     if (ctl && k === 'v') {
       if (eng.pasteTimer !== null) clearTimeout(eng.pasteTimer)
-      eng.pasteTimer = setTimeout(() => { eng.sel.pasteClip(); eng.notify() }, 140)
+      eng.pasteTimer = setTimeout(() => {
+        pasteFromSystemClipboard(eng, eng.mouse.x, eng.mouse.y).then(ok => {
+          if (!ok && eng.sel.clip) { eng.sel.pasteClip(); eng.notify() }
+        })
+      }, 140)
+      return
+    }
+    if (ARROW_NUDGE[ev.key] && eng.sel.selN.size > 0) {
+      ev.preventDefault()
+      const [dx0, dy0] = ARROW_NUDGE[ev.key]
+      const step = ev.shiftKey ? 10 : 1
+      const dx = dx0 * step
+      const dy = dy0 * step
+      eng.sel.pushUndo()
+      for (const id of eng.sel.selN) {
+        const nd = eng.state.nodeById(id)
+        if (nd) { nd.x += dx; nd.y += dy }
+      }
+      for (const e of eng.state.currentPage().edges) {
+        if (eng.sel.selN.has(e.from) && eng.sel.selN.has(e.to)) {
+          (e.waypoints || []).forEach(w => { w.x += dx; w.y += dy })
+        }
+      }
+      eng.state.scheduleAutosave()
+      eng.notify()
       return
     }
     if (ev.key === 'Delete' || ev.key === 'Backspace') { eng.sel.deleteSel(); eng.notify() }
@@ -411,12 +492,20 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       eng.connecting = null
       eng.connectDrag = null
       eng.marquee = null
+      eng.contextMenu = null
       eng.notify()
     }
-    if (k === 'v') eng.setMode('select')
+    if (k === 'v') eng.setMode(eng.mode === 'hand' ? 'select' : 'hand')
     if (k === 'c') eng.setMode('connect')
     if (ev.key === ' ') { ev.preventDefault(); eng.togglePlay() }
+    if (ev.key === 'Shift') shiftHeld = true
   }
+
+  const onKeyUp = (ev: KeyboardEvent): void => {
+    if (ev.key === 'Shift') shiftHeld = false
+  }
+
+  const onBlur = (): void => { shiftHeld = false }
 
   const onPaste = (ev: ClipboardEvent): void => {
     const tag = (ev.target as HTMLElement | null)?.tagName
@@ -443,6 +532,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
 
   const onWheel = (ev: WheelEvent): void => {
     ev.preventDefault()
+    if (eng.contextMenu) eng.closeContextMenu()
     if (ev.ctrlKey || ev.metaKey) {
       const r = cv.getBoundingClientRect()
       const screenX = ev.clientX - r.left
@@ -454,6 +544,9 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       eng.viewZoom = newZoom
       eng.viewX = screenX - worldX * eng.viewZoom
       eng.viewY = screenY - worldY * eng.viewZoom
+      eng.commitEdit()
+    } else if (ev.shiftKey || shiftHeld) {
+      eng.viewX -= (ev.deltaX !== 0 ? ev.deltaX : ev.deltaY)
       eng.commitEdit()
     } else {
       eng.viewX -= ev.deltaX
@@ -481,6 +574,8 @@ export function attachInteraction(eng: CanvasEngine): () => void {
   cv.addEventListener('dragover', onDragOver)
   cv.addEventListener('drop', onDrop)
   document.addEventListener('keydown', onKeyDown)
+  document.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', onBlur)
   document.addEventListener('paste', onPaste)
 
   return () => {
@@ -493,6 +588,8 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     cv.removeEventListener('dragover', onDragOver)
     cv.removeEventListener('drop', onDrop)
     document.removeEventListener('keydown', onKeyDown)
+    document.removeEventListener('keyup', onKeyUp)
+    window.removeEventListener('blur', onBlur)
     document.removeEventListener('paste', onPaste)
   }
 }

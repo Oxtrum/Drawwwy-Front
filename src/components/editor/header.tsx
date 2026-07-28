@@ -1,6 +1,6 @@
-import { useRef } from 'react'
 import { exportCurrentPageAsJpg, exportDocumentAsPdf } from '../../canvas/export'
 import { createDrwyFile, downloadBlob, DRWY_MIME, parseDrwyText, sanitizeFilename } from '../../lib/drwy/format'
+import { useRef, useState, useEffect } from 'react';
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
@@ -8,53 +8,30 @@ import { ThemeToggle } from '../ui/theme-toggle'
 export function EditorHeader() {
   const engine = useEditorStore(s => s.engine)
   useEditorStore(s => s.version)
+  const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
   const settings = engine.state.settings
-  const importRef = useRef<HTMLInputElement>(null)
-
-  const handleExportDrwy = (): void => {
-    const file = createDrwyFile(engine.serialize(), 'Diagrama')
-    const blob = new Blob([JSON.stringify(file, null, 2)], { type: DRWY_MIME })
-    downloadBlob(blob, `${sanitizeFilename(file.title || 'diagrama')}.drwy`)
-  }
-
-  const handleImport = async (file: File): Promise<void> => {
-    try {
-      const hasContent = engine.state.currentPage().nodes.length > 0 || engine.state.currentPage().edges.length > 0 || engine.state.doc.pages.length > 1
-      if (hasContent && !window.confirm('La importación reemplazará el diagrama actual. ¿Continuar?')) return
-      const parsed = parseDrwyText(await file.text())
-      engine.applyProjectData(parsed.projectData)
-    } catch (error) {
-      const message = error instanceof Error ? error.message.replace(/^DRWY_INVALID:\s*/, '') : 'No se pudo importar el archivo.'
-      window.alert(`No se pudo importar el archivo: ${message}`)
-    }
-  }
-
-  const handleExportJpg = async (): Promise<void> => {
-    try {
-      const blob = await exportCurrentPageAsJpg(engine, { scale: 2 })
-      const page = engine.state.currentPage().name || 'pagina'
-      downloadBlob(blob, `${sanitizeFilename(page)}.jpg`)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo generar el JPG.'
-      window.alert(message)
-    }
-  }
-
-  const handleExportPdf = async (): Promise<void> => {
-    try {
-      const blob = await exportDocumentAsPdf(engine, { scale: 2 })
-      downloadBlob(blob, `${sanitizeFilename('Diagrama')}.pdf`)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo generar el PDF.'
-      window.alert(message)
-    }
-  }
 
   return (
     <header>
       <div className="header-pill">
         <Logo />
-        <span className="board-name">Tablero sin título</span>
+        {editing ? (
+          <input
+            ref={inputRef}
+            className="board-name-input"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(engine.state.doc.name); setEditing(false); } }}
+          />
+        ) : (
+          <span
+            className="board-name" title="Doble click para renombrar"
+            onDoubleClick={() => { setDraft(engine.state.doc.name); setEditing(true); }}
+          >
+            {engine.state.doc.name}
+          </span>
+        )}
       </div>
 
       <div className="spacer" />
@@ -102,6 +79,10 @@ export function EditorHeader() {
         </button>
         <button className="icon-btn" title="Centrar vista" onClick={() => engine.centerView()}>
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+        </button>
+        <div className="pill-divider" />
+        <button className="icon-btn" title="Velocidad de animación" onClick={() => toggleAnimationModal(true)}>
+          <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
         </button>
         <div className="pill-divider" />
         <button className="icon-btn primary" title="Reproducir / pausar (Espacio)" onClick={() => engine.togglePlay()}>
