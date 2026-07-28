@@ -29,23 +29,7 @@ export function EditorHeader() {
     <header>
       <div className="header-pill">
         <Logo />
-        {editing ? (
-          <input
-            ref={inputRef}
-            className="board-name-input"
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(engine.state.doc.name); setEditing(false); } }}
-          />
-        ) : (
-          <span
-            className="board-name" title="Doble click para renombrar"
-            onDoubleClick={() => { setDraft(engine.state.doc.name); setEditing(true); }}
-          >
-            {engine.state.doc.name}
-          </span>
-        )}
+        <span className="board-name">Tablero sin título</span>
       </div>
 
       <div className="spacer" />

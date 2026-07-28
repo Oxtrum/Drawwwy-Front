@@ -24,6 +24,18 @@ export function LineStyleTabs({ value, onChange }: { value: LineStyle; onChange:
   )
 }
 
+export function SwitchRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="switch-row">
+      <span>{label}</span>
+      <span className="switch">
+        <input type="checkbox" checked={checked} onChange={ev => onChange(ev.target.checked)} />
+        <span className="switch-track" />
+      </span>
+    </label>
+  )
+}
+
 export function SliderRow(
   { label, value, min, max, step, valueLabel, onDragStart, onChange }:
   {

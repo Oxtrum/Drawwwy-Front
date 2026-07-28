@@ -13,7 +13,7 @@ const SHAPES: Array<{ shape: Shape; label: string; title: string; path: React.Re
   { shape: 'hex', label: 'Hex', title: 'Hexágono', path: <path d="M7 4h10l4 8-4 8H7l-4-8z" /> },
 ]
 
-const ICON_GROUPS = ['General', 'GCP', 'AWS', 'Azure']
+const ICON_GROUPS = ['General', 'Docker', 'GCP', 'AWS', 'Azure']
 
 export function MoreShapesPanel() {
   const engine = useEditorStore(s => s.engine)

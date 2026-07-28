@@ -1,12 +1,20 @@
 import { useRef, useState } from 'react'
 import { useEditorStore } from '../../../lib/stores/editor-store'
 import { useClickOutside } from '../../../hooks/use-click-outside'
-import { ColorSection, LineStyleTabs, SliderRow } from './style-popover'
+import { FONT_SANS, TEXT_FONTS } from '../../../canvas/config'
+import { ColorSection, LineStyleTabs, SliderRow, SwitchRow } from './style-popover'
 import type { Node } from '../../../canvas/types'
 
-type PopoverKind = 'border' | 'fill' | 'color' | 'opacity'
+type PopoverKind = 'border' | 'fill' | 'color' | 'opacity' | 'pulse' | 'text'
+type Align = 'left' | 'center' | 'right'
 
 const PLAIN_SHAPES = new Set(['rect', 'cylinder', 'diamond', 'circle', 'hex'])
+
+const ALIGN_ICONS: Record<Align, React.ReactNode> = {
+  left: <><line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="14" y2="12" /><line x1="4" y1="18" x2="17" y2="18" /></>,
+  center: <><line x1="4" y1="6" x2="20" y2="6" /><line x1="7" y1="12" x2="17" y2="12" /><line x1="5.5" y1="18" x2="18.5" y2="18" /></>,
+  right: <><line x1="4" y1="6" x2="20" y2="6" /><line x1="10" y1="12" x2="20" y2="12" /><line x1="7" y1="18" x2="20" y2="18" /></>,
+}
 
 function PaintBucketIcon() {
   return (
@@ -37,8 +45,11 @@ export function NodeToolbar({ node }: { node: Node }) {
 
   const opacityPct = Math.round((node.opacity ?? 1) * 100)
   const fillOpacityPct = Math.round((node.fillOpacity ?? 1) * 100)
+  const pulseSpeed = node.pulseSpeed ?? engine.state.settings.speed
   const isShape = PLAIN_SHAPES.has(node.shape)
-  const isTintable = node.shape === 'text' || node.shape === 'icon'
+  const isImage = node.shape === 'image'
+  const isText = node.shape === 'text'
+  const isIconShape = node.shape === 'icon'
   const canPulse = node.shape !== 'text'
 
   return (
@@ -46,13 +57,13 @@ export function NodeToolbar({ node }: { node: Node }) {
       <div className="sel-toolbar-row">
         {canPulse && (
           <button
-            className={node.pulse ? 'toggled' : ''} aria-label="Pulso" title="Pulso"
-            onClick={() => commit({ pulse: !node.pulse })}
+            className={open === 'pulse' ? 'toggled' : ''} aria-label="Pulso" title="Pulso"
+            onClick={() => setOpen(open === 'pulse' ? null : 'pulse')}
           >
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6" /><circle cx="12" cy="12" r="8" opacity="0.5" /></svg>
           </button>
         )}
-        {isShape && (
+        {(isShape || isImage) && (
           <button
             className={open === 'border' ? 'toggled' : ''} aria-label="Borde" title="Borde"
             onClick={() => setOpen(open === 'border' ? null : 'border')}
@@ -68,12 +79,20 @@ export function NodeToolbar({ node }: { node: Node }) {
             <PaintBucketIcon />
           </button>
         )}
-        {isTintable && (
+        {isIconShape && (
           <button
             className={open === 'color' ? 'toggled' : ''} aria-label="Color" title="Color"
             onClick={() => setOpen(open === 'color' ? null : 'color')}
           >
             <PaintBucketIcon />
+          </button>
+        )}
+        {isText && (
+          <button
+            className={open === 'text' ? 'toggled' : ''} aria-label="Texto" title="Texto (tamaño, negrilla, fuente, alineación, color)"
+            onClick={() => setOpen(open === 'text' ? null : 'text')}
+          >
+            <svg viewBox="0 0 24 24"><path d="M5 6h14M12 6v13" /></svg>
           </button>
         )}
         {node.shape === 'image' && (
@@ -95,16 +114,25 @@ export function NodeToolbar({ node }: { node: Node }) {
 
       {open === 'border' && (
         <div className="sel-popover">
-          <LineStyleTabs value={node.lineStyle ?? 'solid'} onChange={v => commit({ lineStyle: v })} />
+          {isImage && (
+            <button
+              className={'no-fill-btn' + (!node.imgBorder ? ' toggled' : '')}
+              onClick={() => commit({ imgBorder: false })}
+            >
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M6 18L18 6" /></svg>
+              Sin borde
+            </button>
+          )}
+          <LineStyleTabs value={node.lineStyle ?? 'solid'} onChange={v => commit({ lineStyle: v, imgBorder: true })} />
           <SliderRow
             label="Grosor" value={node.borderWidth ?? 2.5} min={1} max={12} step={0.5}
-            onDragStart={beginDrag} onChange={v => live({ borderWidth: v })}
+            onDragStart={beginDrag} onChange={v => live({ borderWidth: v, imgBorder: true })}
           />
           <SliderRow
             label="Opacidad" value={opacityPct} min={0} max={100} step={5} valueLabel={`${opacityPct}%`}
             onDragStart={beginDrag} onChange={v => live({ opacity: v / 100 })}
           />
-          <ColorSection value={node.color} onChange={c => commit({ color: c })} recentColors={recentColors} />
+          <ColorSection value={node.color} onChange={c => commit({ color: c, imgBorder: true })} recentColors={recentColors} />
         </div>
       )}
       {open === 'fill' && (
@@ -134,6 +162,61 @@ export function NodeToolbar({ node }: { node: Node }) {
             label="Opacidad" value={opacityPct} min={0} max={100} step={5} valueLabel={`${opacityPct}%`}
             onDragStart={beginDrag} onChange={v => live({ opacity: v / 100 })}
           />
+        </div>
+      )}
+      {open === 'pulse' && (
+        <div className="sel-popover">
+          <SwitchRow label="Activo" checked={node.pulse} onChange={v => commit({ pulse: v })} />
+          <SliderRow
+            label="Tamaño" value={node.pulseSize ?? 18} min={4} max={40} step={1}
+            onDragStart={beginDrag} onChange={v => live({ pulseSize: v, pulse: true })}
+          />
+          <SliderRow
+            label="Velocidad" value={pulseSpeed} min={0.05} max={2} step={0.05} valueLabel={pulseSpeed.toFixed(2) + 'x'}
+            onDragStart={beginDrag} onChange={v => live({ pulseSpeed: v, pulse: true })}
+          />
+          <ColorSection value={node.pulseColor || node.color} onChange={c => commit({ pulseColor: c, pulse: true })} recentColors={recentColors} />
+        </div>
+      )}
+      {open === 'text' && (
+        <div className="sel-popover">
+          <SliderRow
+            label="Tamaño" value={node.fs || 22} min={10} max={72} step={1}
+            onDragStart={beginDrag} onChange={v => live({ fs: v })}
+          />
+          <button
+            className={'no-fill-btn' + (node.bold ? ' toggled' : '')}
+            onClick={() => commit({ bold: !node.bold })}
+          >
+            <svg viewBox="0 0 24 24"><path d="M7 5h6a4 4 0 0 1 0 8H7zM7 13h7a4 4 0 0 1 0 8H7z" fill="currentColor" stroke="none" /></svg>
+            Negrilla
+          </button>
+          <div className="style-section-head">Fuente</div>
+          <div className="tab-row">
+            {TEXT_FONTS.map(f => (
+              <button
+                key={f.family}
+                className={(node.font || FONT_SANS) === f.family ? 'toggled' : ''}
+                onClick={() => commit({ font: f.family })}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="style-section-head">Alineación</div>
+          <div className="tab-row">
+            {(['left', 'center', 'right'] as Align[]).map(a => (
+              <button
+                key={a}
+                className={(node.align || 'center') === a ? 'toggled' : ''}
+                aria-label={a} title={a}
+                onClick={() => commit({ align: a })}
+              >
+                <svg viewBox="0 0 24 24">{ALIGN_ICONS[a]}</svg>
+              </button>
+            ))}
+          </div>
+          <ColorSection value={node.color} onChange={c => commit({ color: c })} recentColors={recentColors} />
         </div>
       )}
     </div>

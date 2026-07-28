@@ -14,10 +14,23 @@ export const HANDLE = 7
  */
 export const FONT_SANS = '"Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
 export const FONT_MONO = '"Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace'
+export const FONT_SERIF = '"Georgia", ui-serif, "Times New Roman", serif'
 
 /** Fuente de un nodo/arista en px, lista para asignar a ctx.font. */
-export const canvasFont = (px: number, weight = 500): string =>
-  `${weight} ${px}px ${FONT_SANS}`
+export const canvasFont = (px: number, weight = 500, family = FONT_SANS): string =>
+  `${weight} ${px}px ${family}`
+
+export interface FontOption {
+  label: string
+  family: string
+}
+
+/** Opciones de tipografía del selector "Fuente" en nodos de texto. */
+export const TEXT_FONTS: FontOption[] = [
+  { label: 'Sans', family: FONT_SANS },
+  { label: 'Mono', family: FONT_MONO },
+  { label: 'Serif', family: FONT_SERIF },
+]
 
 export interface PaletteEntry {
   c: string
@@ -152,6 +165,7 @@ export const GCP_BLUE = '#4285f4'
 export const AWS_BG = '#232f3e'
 export const AWS_OR = '#ff9900'
 export const AZ_BLUE = '#0078d4'
+export const DOCKER_BLUE = '#2496ED'
 
 export interface IconDef {
   g: string
@@ -303,13 +317,50 @@ export const ICONS: Record<string, IconDef> = {
     g: 'Azure', n: 'Monitor', svg: badge(AZ_BLUE,
       `<path d="M14 46 L14 14" stroke="#fff" stroke-width="3" fill="none"/><path d="M14 46 L50 46" stroke="#fff" stroke-width="3" fill="none"/><path d="M18 40 L26 28 L34 34 L46 18" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`),
   },
+  docker: {
+    g: 'Docker', n: 'Docker', svg: badge(DOCKER_BLUE,
+      `<rect x="13" y="26" width="9" height="9" rx="1.5" fill="#fff"/><rect x="23" y="26" width="9" height="9" rx="1.5" fill="#fff"/><rect x="33" y="26" width="9" height="9" rx="1.5" fill="#fff"/><rect x="23" y="15" width="9" height="9" rx="1.5" fill="#fff"/><path d="M8 36 h44 c2 0 2 6-3 6H16c-3 4-8 5-11 3-1-3 0-6 1-9z" fill="#fff"/>`),
+  },
+  compose: {
+    g: 'Docker', n: 'Docker Compose', svg: badge(DOCKER_BLUE,
+      `<rect x="12" y="14" width="26" height="18" rx="3" fill="none" stroke="#fff" stroke-width="3"/><rect x="26" y="32" width="26" height="18" rx="3" fill="none" stroke="#fff" stroke-width="3"/><path d="M25 23 h8" stroke="#fff" stroke-width="3"/><path d="M39 41 h8" stroke="#fff" stroke-width="3"/>`),
+  },
+  container: {
+    g: 'Docker', n: 'Contenedor', svg: badge(DOCKER_BLUE,
+      `<rect x="12" y="16" width="40" height="32" rx="2" fill="none" stroke="#fff" stroke-width="3.2"/><line x1="20" y1="16" x2="20" y2="48" stroke="#fff" stroke-width="2.6"/><line x1="28" y1="16" x2="28" y2="48" stroke="#fff" stroke-width="2.6"/><line x1="36" y1="16" x2="36" y2="48" stroke="#fff" stroke-width="2.6"/><line x1="44" y1="16" x2="44" y2="48" stroke="#fff" stroke-width="2.6"/>`),
+  },
+  dockervol: {
+    g: 'Docker', n: 'Volumen', svg: badge(DOCKER_BLUE,
+      `<rect x="16" y="14" width="32" height="36" rx="4" fill="none" stroke="#fff" stroke-width="3.2"/><circle cx="32" cy="24" r="4" fill="none" stroke="#fff" stroke-width="2.6"/><line x1="22" y1="38" x2="42" y2="38" stroke="#fff" stroke-width="2.6"/><line x1="22" y1="44" x2="42" y2="44" stroke="#fff" stroke-width="2.6"/>`),
+  },
+  dockernet: {
+    g: 'Docker', n: 'Red', svg: badge(DOCKER_BLUE,
+      `<circle cx="32" cy="16" r="5" fill="#fff"/><circle cx="16" cy="46" r="5" fill="#fff"/><circle cx="48" cy="46" r="5" fill="#fff"/><path d="M32 21 v10 M32 31 l-13 12 M32 31 l13 12" fill="none" stroke="#fff" stroke-width="3"/><rect x="24" y="27" width="16" height="8" rx="2" fill="none" stroke="#fff" stroke-width="2.6"/>`),
+  },
+  registry: {
+    g: 'Docker', n: 'Registro', svg: badge(DOCKER_BLUE,
+      `<path d="M14 22 L32 12 L50 22 V46 L32 56 L14 46 Z" fill="none" stroke="#fff" stroke-width="3"/><path d="M14 22 L32 32 L50 22 M32 32 V56" fill="none" stroke="#fff" stroke-width="2.6"/>`),
+  },
 }
 
+/** El fondo de cada ícono es siempre este mismo `<rect>` (ver `badge()`), solo
+ *  cambia el color. Se usa para separar fondo de glifo: el fondo se redibuja
+ *  en el canvas con el color propio del nodo (personalizable); el glifo se
+ *  sirve sin fondo y se dibuja encima. */
+const BADGE_RECT_RE = /<rect x="2" y="2" width="60" height="60" rx="14" fill="([^"]*)"\/>/
+
+/** Color de fondo original de cada ícono (el de su badge de marca), usado como
+ *  color por defecto al colocar el nodo por primera vez. */
+export const iconBg: Record<string, string> = {}
 export const iconURL: Record<string, string> = {}
+export const iconGlyphURL: Record<string, string> = {}
 export const imgCache: Record<string, HTMLImageElement> = {}
 
 for (const k in ICONS) {
-  iconURL[k] = 'data:image/svg+xml;utf8,' + encodeURIComponent(ICONS[k].svg)
+  const svg = ICONS[k].svg
+  iconBg[k] = svg.match(BADGE_RECT_RE)?.[1] || '#64748B'
+  iconURL[k] = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
+  iconGlyphURL[k] = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg.replace(BADGE_RECT_RE, ''))
 }
 
 export function getImg(src: string): HTMLImageElement {

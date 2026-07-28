@@ -8,6 +8,16 @@ import { CLIP_PREFIX } from './selection'
 import type { Edge, Node, Point, Side } from './types'
 import type { CanvasEngine } from './engine'
 
+/** Nudge de selección con flechas del teclado: 1px por tecla (10px con Shift),
+ *  sin snap a GRID, para poder acomodar con más precisión que arrastrando con
+ *  el mouse. */
+const ARROW_NUDGE: Record<string, [number, number]> = {
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+}
+
 export function toWorld(eng: CanvasEngine, ev: { clientX: number; clientY: number }): Point {
   const cv = eng.canvas
   if (!cv) return { x: 0, y: 0 }
@@ -453,6 +463,26 @@ export function attachInteraction(eng: CanvasEngine): () => void {
           if (!ok && eng.sel.clip) { eng.sel.pasteClip(); eng.notify() }
         })
       }, 140)
+      return
+    }
+    if (ARROW_NUDGE[ev.key] && eng.sel.selN.size > 0) {
+      ev.preventDefault()
+      const [dx0, dy0] = ARROW_NUDGE[ev.key]
+      const step = ev.shiftKey ? 10 : 1
+      const dx = dx0 * step
+      const dy = dy0 * step
+      eng.sel.pushUndo()
+      for (const id of eng.sel.selN) {
+        const nd = eng.state.nodeById(id)
+        if (nd) { nd.x += dx; nd.y += dy }
+      }
+      for (const e of eng.state.currentPage().edges) {
+        if (eng.sel.selN.has(e.from) && eng.sel.selN.has(e.to)) {
+          (e.waypoints || []).forEach(w => { w.x += dx; w.y += dy })
+        }
+      }
+      eng.state.scheduleAutosave()
+      eng.notify()
       return
     }
     if (ev.key === 'Delete' || ev.key === 'Backspace') { eng.sel.deleteSel(); eng.notify() }

@@ -30,6 +30,9 @@ export interface EditBox {
   width: number
   fontSize: number
   value: string
+  bold?: boolean
+  font?: string
+  align?: 'left' | 'center' | 'right'
 }
 
 export class CanvasEngine {
@@ -251,12 +254,16 @@ export class CanvasEngine {
     }
     const screenCX = cx * this.viewZoom + this.viewX
     const screenCY = cyy * this.viewZoom + this.viewY
+    const isNode = !('from' in tgt)
     this.editBox = {
       left: screenCX - (w / 2) * this.viewZoom,
       top: screenCY - 16 * this.viewZoom,
       width: w * this.viewZoom,
       fontSize: Math.max(12, 15 * this.viewZoom),
       value: tgt.label || '',
+      bold: isNode ? tgt.bold : undefined,
+      font: isNode ? tgt.font : undefined,
+      align: isNode ? tgt.align : undefined,
     }
     this.onEditBoxChange?.(this.editBox)
   }

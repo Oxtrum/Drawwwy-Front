@@ -5,7 +5,7 @@ export type Side = 'n' | 'e' | 's' | 'w'
 export type Route = 'straight' | 'ortho'
 export type FlowDir = 'normal' | 'reverse' | 'alternate'
 export type LineStyle = 'solid' | 'dashed' | 'dotted'
-export type DotShape = 'circle' | 'triangle' | 'diamond' | 'star' | 'package' | 'mail'
+export type DotShape = 'circle' | 'triangle' | 'diamond' | 'json' | 'package' | 'mail'
 
 export interface Point {
   x: number
@@ -41,6 +41,20 @@ export interface Node {
   borderWidth?: number
   lineStyle?: LineStyle
   opacity?: number
+  /** Solo aplica a `shape: 'image'`: las demás figuras siempre muestran su
+   *  borde (`color`/`borderWidth`/`lineStyle`); una imagen no, salvo que se
+   *  active acá, para no dibujar un borde por defecto sobre fotos existentes. */
+  imgBorder?: boolean
+  /** Brillo del pulso (`pulse: true`): sin valor, cae a `color` / velocidad
+   *  global de animación / 18px de blur. */
+  pulseColor?: string
+  pulseSpeed?: number
+  pulseSize?: number
+  /** Solo aplican a `shape: 'text'`. Sin valor: peso normal, fuente sans del
+   *  sistema (`FONT_SANS`), alineado al centro. */
+  bold?: boolean
+  font?: string
+  align?: 'left' | 'center' | 'right'
 }
 
 export interface Edge {
@@ -74,6 +88,7 @@ export interface Page {
 }
 
 export interface Document {
+  name: string
   theme: string
   pages: Page[]
   cur: number

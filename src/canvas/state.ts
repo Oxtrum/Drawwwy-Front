@@ -1,6 +1,6 @@
 'use strict'
 
-import { DEFAULT_THEME, GRID, PALETTE, resolveTheme } from './config'
+import { DEFAULT_THEME, GRID, PALETTE, iconBg, resolveTheme } from './config'
 import { edgePoints } from './geometry'
 import type { Bounds, Document, Edge, Node, Page, Settings, Shape } from './types'
 
@@ -57,7 +57,7 @@ export class DocumentState {
   private autosaveSuppressed = 0
 
   constructor() {
-    this.doc = { theme: DEFAULT_THEME, pages: [this.blankPage('Página 1')], cur: 0 }
+    this.doc = { name: 'Tablero sin título', theme: DEFAULT_THEME, pages: [this.blankPage('Página 1')], cur: 0 }
     this.settings = { speed: 0.5, dots: 3, build: false, stagger: 0.45, grid: true }
     if (this.hasAutosave()) {
       this.autosavePaused = true
@@ -106,6 +106,7 @@ export class DocumentState {
   newNode(shape: Shape, x: number, y: number, extra: Partial<Node> = {}): Node {
     const page = this.currentPage()
     const [w, h] = NODE_SIZES[shape]
+    const defaultColor = shape === 'icon' && extra.icon ? (iconBg[extra.icon] || PALETTE[0].c) : PALETTE[0].c
     const n: Node = {
       id: page.nextId++,
       shape,
@@ -114,7 +115,7 @@ export class DocumentState {
       w,
       h,
       label: shape === 'text' ? 'Texto' : (shape === 'icon' || shape === 'image') ? '' : 'Nodo',
-      color: PALETTE[0].c,
+      color: defaultColor,
       fill: null,
       fillOpacity: 1,
       borderWidth: 2.5,
@@ -181,6 +182,11 @@ export class DocumentState {
     return { version: 3, app: 'drawwwy', doc: this.doc, settings: this.settings }
   }
 
+  setProjectName(name: string): void {
+    this.doc.name = name
+    this.scheduleAutosave()
+  }
+
   saveAutosave(force = false): void {
     if (!force && !this.canAutosave()) return
     try {
@@ -235,6 +241,7 @@ export class DocumentState {
           ...e,
         })) as Edge[]
         this.doc = {
+          name: 'Tablero sin título',
           theme: resolveTheme(legacy.theme),
           cur: 0,
           pages: [{
@@ -263,6 +270,8 @@ export class DocumentState {
       // Un documento guardado puede traer un tema ya retirado del sistema de diseño.
       this.doc.theme = resolveTheme(this.doc.theme)
       this.doc.cur = DocumentState.clamp(this.doc.cur || 0, 0, this.doc.pages.length - 1)
+      // Autosaves de antes de que existiera el nombre de tablero no lo traen.
+      this.doc.name = this.doc.name || 'Tablero sin título'
       this.onProjectApplied?.()
     })
   }

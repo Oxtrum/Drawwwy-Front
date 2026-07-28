@@ -1,4 +1,3 @@
-import { useRef, useState, useEffect } from 'react';
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
@@ -8,44 +7,12 @@ export function EditorHeader() {
   useEditorStore(s => s.version)
   const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
   const settings = engine.state.settings
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(engine.state.doc.name)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (editing) inputRef.current?.focus()
-  }, [editing])
-
-  const commit = (): void => {
-    const v = draft.trim()
-    if (v && v !== engine.state.doc.name) {
-      engine.state.setProjectName(v)
-      engine.notify()
-    }
-    setEditing(false)
-  }
 
   return (
     <header>
       <div className="header-pill">
         <Logo />
-        {editing ? (
-          <input
-            ref={inputRef}
-            className="board-name-input"
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(engine.state.doc.name); setEditing(false); } }}
-          />
-        ) : (
-          <span
-            className="board-name" title="Doble click para renombrar"
-            onDoubleClick={() => { setDraft(engine.state.doc.name); setEditing(true); }}
-          >
-            {engine.state.doc.name}
-          </span>
-        )}
+        <span className="board-name">Tablero sin título</span>
       </div>
 
       <div className="spacer" />
