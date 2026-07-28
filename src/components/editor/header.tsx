@@ -1,6 +1,6 @@
+import { useEffect, useRef, useState } from 'react'
 import { exportCurrentPageAsJpg, exportDocumentAsPdf } from '../../canvas/export'
 import { createDrwyFile, downloadBlob, DRWY_MIME, parseDrwyText, sanitizeFilename } from '../../lib/drwy/format'
-import { useRef, useState, useEffect } from 'react';
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
@@ -10,6 +10,79 @@ export function EditorHeader() {
   useEditorStore(s => s.version)
   const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
   const settings = engine.state.settings
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(engine.state.doc.name)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const importRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!editing) setDraft(engine.state.doc.name)
+  }, [editing, engine.state.doc.name])
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  const commit = (): void => {
+    const value = draft.trim()
+    if (value && value !== engine.state.doc.name) {
+      engine.state.setProjectName(value)
+      engine.notify()
+    } else {
+      setDraft(engine.state.doc.name)
+    }
+    setEditing(false)
+  }
+
+  const cancelRename = (): void => {
+    setDraft(engine.state.doc.name)
+    setEditing(false)
+  }
+
+  const handleExportDrwy = (): void => {
+    const title = engine.state.doc.name || 'Diagrama'
+    const file = createDrwyFile(engine.serialize(), title)
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: DRWY_MIME })
+    downloadBlob(blob, `${sanitizeFilename(file.title || 'diagrama')}.drwy`)
+  }
+
+  const handleImport = async (file: File): Promise<void> => {
+    try {
+      const hasContent = engine.state.currentPage().nodes.length > 0 || engine.state.currentPage().edges.length > 0 || engine.state.doc.pages.length > 1
+      if (hasContent && !window.confirm('La importacion reemplazara el diagrama actual. Continuar?')) return
+      const parsed = parseDrwyText(await file.text())
+      engine.applyProjectData(parsed.projectData)
+      if (parsed.title) {
+        engine.state.setProjectName(parsed.title)
+        engine.notify()
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message.replace(/^DRWY_INVALID:\s*/, '') : 'No se pudo importar el archivo.'
+      window.alert(`No se pudo importar el archivo: ${message}`)
+    }
+  }
+
+  const handleExportJpg = async (): Promise<void> => {
+    try {
+      const blob = await exportCurrentPageAsJpg(engine, { scale: 2 })
+      const title = engine.state.doc.name || 'Diagrama'
+      const page = engine.state.currentPage().name || 'pagina'
+      downloadBlob(blob, `${sanitizeFilename(`${title}-${page}`)}.jpg`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo generar el JPG.'
+      window.alert(message)
+    }
+  }
+
+  const handleExportPdf = async (): Promise<void> => {
+    try {
+      const blob = await exportDocumentAsPdf(engine, { scale: 2 })
+      downloadBlob(blob, `${sanitizeFilename(engine.state.doc.name || 'Diagrama')}.pdf`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo generar el PDF.'
+      window.alert(message)
+    }
+  }
 
   return (
     <header>
@@ -22,7 +95,7 @@ export function EditorHeader() {
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onBlur={commit}
-            onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(engine.state.doc.name); setEditing(false); } }}
+            onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancelRename() }}
           />
         ) : (
           <span
