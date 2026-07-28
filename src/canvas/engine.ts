@@ -6,6 +6,7 @@ import { attachInteraction } from './interaction'
 import { render } from './render'
 import { SelectionManager } from './selection'
 import { DocumentState } from './state'
+import type { ProjectData } from './state'
 import type {
   ConnectDragState, DragState, Edge, MarqueeState, Node, PlacementState, Point, ResizeState, Shape,
 } from './types'
@@ -297,5 +298,21 @@ export class CanvasEngine {
 
   serialize(): ReturnType<DocumentState['serializeProject']> {
     return this.state.serializeProject()
+  }
+
+  applyProjectData(data: ProjectData): void {
+    this.commitEdit()
+    this.drag = null
+    this.placement = null
+    this.resizing = null
+    this.wpDrag = null
+    this.connectDrag = null
+    this.marquee = null
+    this.pendingShape = null
+    this.pendingIcon = null
+    this.connecting = null
+    this.state.applyProjectData(data)
+    this.centerView()
+    this.notify()
   }
 }

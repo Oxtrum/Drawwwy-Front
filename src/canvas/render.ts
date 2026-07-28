@@ -98,7 +98,7 @@ export function nodeCorners(n: Node): Array<[number, number]> {
 export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: boolean, eng: CanvasEngine): void {
   const T = themeOf(theme)
   const settings = eng.state.settings
-  const a = nodeAlpha(n, t, settings)
+  const a = isExport ? 1 : nodeAlpha(n, t, settings)
   if (a <= 0) return
   c.save()
   c.globalAlpha = a
@@ -182,7 +182,7 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
   const A = eng.state.nodeById(e.from)
   const B = eng.state.nodeById(e.to)
   if (!A || !B) return
-  const a = Math.min(nodeAlpha(A, t, settings), nodeAlpha(B, t, settings))
+  const a = isExport ? 1 : Math.min(nodeAlpha(A, t, settings), nodeAlpha(B, t, settings))
   if (a <= 0) return
   const pts = edgePoints(e, id => eng.state.nodeById(id))
   if (pts.length < 2) return
