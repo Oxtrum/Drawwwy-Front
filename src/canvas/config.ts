@@ -132,7 +132,13 @@ export const wheel = (col: string): string => {
 }
 
 export const cylin = (col: string): string =>
-  `<path d="M18 22 v20 c0 4 6 7 14 7 s14 -3 14 -7 V22" fill="none" stroke="${col}" stroke-width="3.6"/><ellipse cx="32" cy="22" rx="14" ry="6.5" fill="none" stroke="${col}" stroke-width="3.6"/>`
+  `<path d="M18 20 v22 c0 4 6 7 14 7 s14 -3 14 -7 V20" fill="none" stroke="${col}" stroke-width="3.4"/><ellipse cx="32" cy="20" rx="14" ry="9" fill="none" stroke="${col}" stroke-width="3.4"/>`
+
+export const clock = (col: string): string =>
+  `<circle cx="32" cy="32" r="17" fill="none" stroke="${col}" stroke-width="3.4"/><line x1="32" y1="32" x2="32" y2="20" stroke="${col}" stroke-width="3" stroke-linecap="round"/><line x1="32" y1="32" x2="41" y2="36" stroke="${col}" stroke-width="3" stroke-linecap="round"/>`
+
+export const cdn = (col: string): string =>
+  `<circle cx="32" cy="32" r="16" fill="none" stroke="${col}" stroke-width="3"/><line x1="16" y1="32" x2="48" y2="32" stroke="${col}" stroke-width="2.6"/><ellipse cx="32" cy="32" rx="7" ry="16" fill="none" stroke="${col}" stroke-width="2.6"/><circle cx="32" cy="14" r="3" fill="${col}"/><circle cx="32" cy="50" r="3" fill="${col}"/>`
 
 /**
  * Glifo dentro de un badge. Los iconos se sirven como data-URI y se pintan con
@@ -185,6 +191,43 @@ export const ICONS: Record<string, IconDef> = {
     g: 'General', n: 'IA', svg: badge('#6d5a96',
       `<path d="M32 12 l4.5 13 13 4.5 -13 4.5 -4.5 13 -4.5 -13 -13 -4.5 13 -4.5z" fill="#fff"/><circle cx="48" cy="16" r="3.4" fill="#fff"/>`),
   },
+  server: {
+    g: 'General', n: 'Servidor', svg: badge('#37474f',
+      `<rect x="16" y="14" width="32" height="10" rx="2" fill="none" stroke="#fff" stroke-width="3"/><circle cx="22" cy="19" r="1.8" fill="#fff"/><rect x="16" y="27" width="32" height="10" rx="2" fill="none" stroke="#fff" stroke-width="3"/><circle cx="22" cy="32" r="1.8" fill="#fff"/><rect x="16" y="40" width="32" height="10" rx="2" fill="none" stroke="#fff" stroke-width="3"/><circle cx="22" cy="45" r="1.8" fill="#fff"/>`),
+  },
+  cache: {
+    g: 'General', n: 'Caché', svg: badge('#8a6d3b',
+      `<path d="M34 12 L20 34 h10 l-4 18 18-24 h-10z" fill="#fff"/>`),
+  },
+  lb: {
+    g: 'General', n: 'Balanceador', svg: badge('#3f6b4f',
+      `<circle cx="32" cy="16" r="5" fill="#fff"/><circle cx="16" cy="46" r="5" fill="#fff"/><circle cx="32" cy="46" r="5" fill="#fff"/><circle cx="48" cy="46" r="5" fill="#fff"/><line x1="32" y1="21" x2="18" y2="42" stroke="#fff" stroke-width="3"/><line x1="32" y1="21" x2="32" y2="41" stroke="#fff" stroke-width="3"/><line x1="32" y1="21" x2="46" y2="42" stroke="#fff" stroke-width="3"/>`),
+  },
+  firewall: {
+    g: 'General', n: 'Firewall', svg: badge('#8a4a2f',
+      `<rect x="14" y="14" width="36" height="36" rx="4" fill="none" stroke="#fff" stroke-width="3"/><line x1="14" y1="26" x2="50" y2="26" stroke="#fff" stroke-width="2.4"/><line x1="14" y1="38" x2="50" y2="38" stroke="#fff" stroke-width="2.4"/><line x1="32" y1="14" x2="32" y2="26" stroke="#fff" stroke-width="2.4"/><line x1="23" y1="26" x2="23" y2="38" stroke="#fff" stroke-width="2.4"/><line x1="41" y1="26" x2="41" y2="38" stroke="#fff" stroke-width="2.4"/><line x1="32" y1="38" x2="32" y2="50" stroke="#fff" stroke-width="2.4"/>`),
+  },
+  mail: {
+    g: 'General', n: 'Correo', svg: badge('#3b6ea5',
+      `<rect x="12" y="18" width="40" height="28" rx="3" fill="none" stroke="#fff" stroke-width="3.2"/><path d="M13 20 L32 35 L51 20" fill="none" stroke="#fff" stroke-width="3.2"/>`),
+  },
+  bell: {
+    g: 'General', n: 'Notificación', svg: badge('#a06a2c',
+      `<path d="M32 13c-6 0-10 5-10 11v6c0 4-2 7-4 9h28c-2-2-4-5-4-9v-6c0-6-4-11-10-11z" fill="#fff"/><path d="M27 43a5 5 0 0 0 10 0" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>`),
+  },
+  git: {
+    g: 'General', n: 'Git', svg: badge('#a8481c',
+      `<circle cx="20" cy="16" r="4.5" fill="#fff"/><circle cx="20" cy="48" r="4.5" fill="#fff"/><circle cx="42" cy="32" r="4.5" fill="#fff"/><line x1="20" y1="20.5" x2="20" y2="43.5" stroke="#fff" stroke-width="3"/><path d="M20 24 c0 8 6 8 18 8" fill="none" stroke="#fff" stroke-width="3"/>`),
+  },
+  search: {
+    g: 'General', n: 'Búsqueda', svg: badge('#3b5a6b',
+      `<circle cx="27" cy="27" r="12" fill="none" stroke="#fff" stroke-width="3.6"/><line x1="36" y1="36" x2="48" y2="48" stroke="#fff" stroke-width="4" stroke-linecap="round"/>`),
+  },
+  chat: {
+    g: 'General', n: 'Chat', svg: badge('#2f7a63',
+      `<path d="M14 16 h36 a4 4 0 0 1 4 4 v18 a4 4 0 0 1 -4 4 H26 l-8 8 v-8 h-4 a4 4 0 0 1 -4-4 V20 a4 4 0 0 1 4-4z" fill="none" stroke="#fff" stroke-width="3.2"/><circle cx="24" cy="29" r="2" fill="#fff"/><circle cx="32" cy="29" r="2" fill="#fff"/><circle cx="40" cy="29" r="2" fill="#fff"/>`),
+  },
+  cron: { g: 'General', n: 'Programador', svg: badge('#4a5a7a', clock('#fff')) },
   gke: { g: 'GCP', n: 'GKE', svg: badge(GCP_BLUE, wheel('#fff')) },
   cloudsql: { g: 'GCP', n: 'Cloud SQL', svg: badge(GCP_BLUE, cylin('#fff')) },
   pubsub: {
@@ -208,6 +251,9 @@ export const ICONS: Record<string, IconDef> = {
       `<circle cx="20" cy="20" r="4" fill="#fff"/><circle cx="44" cy="20" r="4" fill="#fff"/><circle cx="32" cy="30" r="4" fill="#fff"/><circle cx="32" cy="46" r="5" fill="#fff"/><line x1="22" y1="23" x2="30" y2="28" stroke="#fff" stroke-width="2.6"/><line x1="42" y1="23" x2="34" y2="28" stroke="#fff" stroke-width="2.6"/><line x1="32" y1="34" x2="32" y2="41" stroke="#fff" stroke-width="2.6"/>`),
   },
   gcf: { g: 'GCP', n: 'Functions', svg: badge(GCP_BLUE, txtG('ƒ', '#fff', 34)) },
+  firestore: { g: 'GCP', n: 'Firestore', svg: badge(GCP_BLUE, cylin('#fff')) },
+  gcpcdn: { g: 'GCP', n: 'Cloud CDN', svg: badge(GCP_BLUE, cdn('#fff')) },
+  gcpsched: { g: 'GCP', n: 'Cloud Scheduler', svg: badge(GCP_BLUE, clock('#fff')) },
   lambda: { g: 'AWS', n: 'Lambda', svg: badge(AWS_BG, txtG('λ', AWS_OR, 34)) },
   s3: {
     g: 'AWS', n: 'S3', svg: badge(AWS_BG,
@@ -226,6 +272,12 @@ export const ICONS: Record<string, IconDef> = {
       `<path d="M14 24 h26 m0 0 l-7 -6 m7 6 l-7 6" fill="none" stroke="${AWS_OR}" stroke-width="3.4"/><path d="M50 42 h-26 m0 0 l7 -6 m-7 6 l7 6" fill="none" stroke="${AWS_OR}" stroke-width="3.4"/>`),
   },
   apigw: { g: 'AWS', n: 'API GW', svg: badge(AWS_BG, txtG('&lt;/&gt;', AWS_OR, 21)) },
+  rds: { g: 'AWS', n: 'RDS', svg: badge(AWS_BG, cylin(AWS_OR)) },
+  cloudfront: { g: 'AWS', n: 'CloudFront', svg: badge(AWS_BG, cdn(AWS_OR)) },
+  iam: {
+    g: 'AWS', n: 'IAM', svg: badge(AWS_BG,
+      `<circle cx="24" cy="24" r="9" fill="none" stroke="${AWS_OR}" stroke-width="3.4"/><line x1="30" y1="30" x2="48" y2="48" stroke="${AWS_OR}" stroke-width="3.4"/><line x1="40" y1="38" x2="46" y2="32" stroke="${AWS_OR}" stroke-width="3.4"/><line x1="44" y1="42" x2="50" y2="36" stroke="${AWS_OR}" stroke-width="3.4"/>`),
+  },
   azvm: {
     g: 'Azure', n: 'VM', svg: badge(AZ_BLUE,
       `<rect x="16" y="17" width="32" height="22" rx="3" fill="none" stroke="#fff" stroke-width="3.4"/><line x1="24" y1="48" x2="40" y2="48" stroke="#fff" stroke-width="3.4"/><line x1="32" y1="39" x2="32" y2="48" stroke="#fff" stroke-width="3.4"/>`),
@@ -245,6 +297,11 @@ export const ICONS: Record<string, IconDef> = {
   aks: {
     g: 'Azure', n: 'AKS', svg: badge(AZ_BLUE,
       `<path d="M32 12 l17 10 v20 l-17 10 -17 -10 V22z" fill="none" stroke="#fff" stroke-width="3.4"/><circle cx="32" cy="32" r="6" fill="#fff"/>`),
+  },
+  azsql: { g: 'Azure', n: 'Azure SQL', svg: badge(AZ_BLUE, cylin('#fff')) },
+  azmonitor: {
+    g: 'Azure', n: 'Monitor', svg: badge(AZ_BLUE,
+      `<path d="M14 46 L14 14" stroke="#fff" stroke-width="3" fill="none"/><path d="M14 46 L50 46" stroke="#fff" stroke-width="3" fill="none"/><path d="M18 40 L26 28 L34 34 L46 18" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`),
   },
 }
 

@@ -8,12 +8,23 @@ type PopoverKind = 'border' | 'fill' | 'color' | 'opacity'
 
 const PLAIN_SHAPES = new Set(['rect', 'cylinder', 'diamond', 'circle', 'hex'])
 
+function PaintBucketIcon() {
+  return (
+    <svg viewBox="0 0 24 24">
+      <path d="M19 11 11 3 3.6 10.4a2 2 0 0 0 0 2.8l7.2 7.2a2 2 0 0 0 2.8 0L19 14" />
+      <path d="M2 12h13" />
+      <path d="M6 3l4 4" />
+    </svg>
+  )
+}
+
 export function NodeToolbar({ node }: { node: Node }) {
   const engine = useEditorStore(s => s.engine)
   const [open, setOpen] = useState<PopoverKind | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(null))
 
+  const recentColors = engine.state.usedColors()
   const commit = (p: Partial<Node>): void => engine.updateNode(node.id, p)
   // Los sliders disparan onChange en cada paso del arrastre: un solo pushUndo
   // al iniciar el gesto, luego mutación directa para no inundar el historial.
@@ -54,7 +65,7 @@ export function NodeToolbar({ node }: { node: Node }) {
             className={open === 'fill' ? 'toggled' : ''} aria-label="Relleno" title="Relleno"
             onClick={() => setOpen(open === 'fill' ? null : 'fill')}
           >
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
+            <PaintBucketIcon />
           </button>
         )}
         {isTintable && (
@@ -62,7 +73,7 @@ export function NodeToolbar({ node }: { node: Node }) {
             className={open === 'color' ? 'toggled' : ''} aria-label="Color" title="Color"
             onClick={() => setOpen(open === 'color' ? null : 'color')}
           >
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>
+            <PaintBucketIcon />
           </button>
         )}
         {node.shape === 'image' && (
@@ -93,7 +104,7 @@ export function NodeToolbar({ node }: { node: Node }) {
             label="Opacidad" value={opacityPct} min={0} max={100} step={5} valueLabel={`${opacityPct}%`}
             onDragStart={beginDrag} onChange={v => live({ opacity: v / 100 })}
           />
-          <ColorSection value={node.color} onChange={c => commit({ color: c })} />
+          <ColorSection value={node.color} onChange={c => commit({ color: c })} recentColors={recentColors} />
         </div>
       )}
       {open === 'fill' && (
@@ -109,12 +120,12 @@ export function NodeToolbar({ node }: { node: Node }) {
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M6 18L18 6" /></svg>
             Sin relleno
           </button>
-          <ColorSection value={node.fill ?? ''} onChange={c => commit({ fill: c })} />
+          <ColorSection value={node.fill ?? ''} onChange={c => commit({ fill: c })} recentColors={recentColors} />
         </div>
       )}
       {open === 'color' && (
         <div className="sel-popover">
-          <ColorSection value={node.color} onChange={c => commit({ color: c })} />
+          <ColorSection value={node.color} onChange={c => commit({ color: c })} recentColors={recentColors} />
         </div>
       )}
       {open === 'opacity' && (

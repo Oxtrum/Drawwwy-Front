@@ -25,7 +25,12 @@ export function MoreShapesPanel() {
 
   return (
     <div className="more-shapes-panel">
-      <h4>Figuras</h4>
+      <div className="more-shapes-header">
+        <h4>Figuras</h4>
+        <button className="close-btn" aria-label="Cerrar" onClick={() => toggleMoreShapes(false)}>
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+      </div>
       <div className="shapesGrid">
         {SHAPES.map(s => (
           <button

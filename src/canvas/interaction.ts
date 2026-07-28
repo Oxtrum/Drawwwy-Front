@@ -102,23 +102,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
   const cv = eng.canvas
   if (!cv) return () => {}
 
-  let wasRightDrag = false
   let shiftHeld = false
 
   const onContextMenu = (ev: MouseEvent): void => {
     ev.preventDefault()
-    if (wasRightDrag) return
-    const p = toWorld(eng, ev)
-    const n = hitNode(eng, p.x, p.y)
-    const e = !n ? hitEdge(eng, p.x, p.y) : null
-    if (n) {
-      if (!eng.sel.selN.has(n.id)) eng.sel.selectOnly('node', n.id)
-    } else if (e) {
-      if (!eng.sel.selE.has(e.id)) eng.sel.selectOnly('edge', e.id)
-    } else {
-      eng.sel.clearSel()
-    }
-    eng.openContextMenu(ev.clientX, ev.clientY)
   }
 
   const onPointerDown = (ev: PointerEvent): void => {
@@ -126,7 +113,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       if (ev.button !== 2) ev.preventDefault()
       eng.panDrag = { x: ev.clientX, y: ev.clientY, startX: eng.viewX, startY: eng.viewY, isRight: ev.button === 2, moved: false }
       cv.setPointerCapture(ev.pointerId)
-      cv.style.cursor = 'grabbing'
+      if (ev.button !== 2) cv.style.cursor = 'grabbing'
       return
     }
     if (ev.button !== 0) return
@@ -245,7 +232,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     if (eng.panDrag) {
       const dx = ev.clientX - eng.panDrag.x
       const dy = ev.clientY - eng.panDrag.y
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) eng.panDrag.moved = true
+      if (!eng.panDrag.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+        eng.panDrag.moved = true
+        cv.style.cursor = 'grabbing'
+      }
       eng.viewX = eng.panDrag.startX + dx
       eng.viewY = eng.panDrag.startY + dy
       return
@@ -293,12 +283,12 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       return
     }
     if (eng.mode === 'hand') { cv.style.cursor = 'grab'; return }
-    eng.hoverNode = hitNode(eng, p.x, p.y)
-    if (!eng.hoverNode) {
-      for (const nd of eng.state.currentPage().nodes) {
-        if (hitSideArrow(nd, p.x, p.y)) { eng.hoverNode = nd; break }
-      }
+    eng.hoverNode = null
+    const ns = eng.state.currentPage().nodes
+    for (let i = ns.length - 1; i >= 0; i--) {
+      if (hitSideArrow(ns[i], p.x, p.y)) { eng.hoverNode = ns[i]; break }
     }
+    if (!eng.hoverNode) eng.hoverNode = hitNode(eng, p.x, p.y)
     const single = eng.sel.singleSel()
     let cur = 'default'
     if (eng.pendingShape || eng.pendingIcon || eng.mode === 'connect' || eng.connectDrag) cur = 'crosshair'
@@ -310,9 +300,19 @@ export function attachInteraction(eng: CanvasEngine): () => void {
 
   const onPointerUp = (ev: PointerEvent): void => {
     if (eng.panDrag) {
-      if (eng.panDrag.isRight && eng.panDrag.moved) {
-        wasRightDrag = true
-        setTimeout(() => { wasRightDrag = false }, 50)
+      if (eng.panDrag.isRight && !eng.panDrag.moved) {
+        const p = toWorld(eng, ev)
+        const n = hitNode(eng, p.x, p.y)
+        const e = !n ? hitEdge(eng, p.x, p.y) : null
+        if (n) {
+          if (!eng.sel.selN.has(n.id)) eng.sel.selectOnly('node', n.id)
+        } else if (e) {
+          if (!eng.sel.selE.has(e.id)) eng.sel.selectOnly('edge', e.id)
+        } else {
+          eng.sel.clearSel()
+        }
+        eng.openContextMenu(ev.clientX, ev.clientY)
+        cv.style.cursor = 'default'
       }
       eng.panDrag = null
       return
@@ -351,9 +351,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     }
     if (eng.connectDrag) {
       const tgt = hitNode(eng, p.x, p.y)
-      if (tgt && tgt.id !== eng.connectDrag.fromId) {
+      if (tgt) {
         eng.sel.pushUndo()
-        const snapSide = nearestAnchorSide(tgt, p, 22)
+        const isSelf = tgt.id === eng.connectDrag.fromId
+        const snapSide = isSelf ? eng.connectDrag.fromSide : nearestAnchorSide(tgt, p, 22)
         const e = eng.state.newEdge(eng.connectDrag.fromId, tgt.id, {
           fromSide: eng.connectDrag.fromSide,
           toSide: snapSide,

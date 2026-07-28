@@ -27,6 +27,7 @@ export function EdgeToolbar({ edge }: { edge: Edge }) {
   const ref = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(null))
 
+  const recentColors = engine.state.usedColors()
   const commit = (p: Partial<Edge>): void => engine.updateEdge(edge.id, p)
   const beginDrag = (): void => engine.sel.pushUndo()
   const live = (p: Partial<Edge>): void => {
@@ -106,7 +107,7 @@ export function EdgeToolbar({ edge }: { edge: Edge }) {
             label="Grosor" value={edge.lineWidth ?? 2} min={1} max={8} step={0.5}
             onDragStart={beginDrag} onChange={v => live({ lineWidth: v })}
           />
-          <ColorSection value={edge.lineColor || '#64748B'} onChange={c => commit({ lineColor: c })} />
+          <ColorSection value={edge.lineColor || '#64748B'} onChange={c => commit({ lineColor: c })} recentColors={recentColors} />
         </div>
       )}
 
@@ -133,7 +134,7 @@ export function EdgeToolbar({ edge }: { edge: Edge }) {
             label="Velocidad" value={dotSpeed} min={0.05} max={2} step={0.05} valueLabel={dotSpeed.toFixed(2) + 'x'}
             onDragStart={beginDrag} onChange={v => live({ dotSpeed: v })}
           />
-          <ColorSection value={dotColor} onChange={c => commit({ dotColor: c })} />
+          <ColorSection value={dotColor} onChange={c => commit({ dotColor: c })} recentColors={recentColors} />
         </div>
       )}
     </div>

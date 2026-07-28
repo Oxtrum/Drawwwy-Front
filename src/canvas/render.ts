@@ -180,11 +180,12 @@ export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: bo
   }
 }
 
-function arrowHead(c: Ctx, x: number, y: number, ang: number, col: string): void {
+function arrowHead(c: Ctx, x: number, y: number, ang: number, col: string, lineWidth: number): void {
+  const s = DocumentState.clamp(lineWidth / 2, 0.65, 2.3)
   c.save()
   c.translate(x, y); c.rotate(ang)
   c.fillStyle = col
-  c.beginPath(); c.moveTo(1, 0); c.lineTo(-11, -6); c.lineTo(-11, 6); c.closePath(); c.fill()
+  c.beginPath(); c.moveTo(s, 0); c.lineTo(-11 * s, -6 * s); c.lineTo(-11 * s, 6 * s); c.closePath(); c.fill()
   c.restore()
 }
 
@@ -290,12 +291,12 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
   const last = pts[pts.length - 1]
   const prev = pts[pts.length - 2]
   if (e.endArrow !== false) {
-    arrowHead(c, last.x, last.y, Math.atan2(last.y - prev.y, last.x - prev.x), seld ? T.sel : lineCol)
+    arrowHead(c, last.x, last.y, Math.atan2(last.y - prev.y, last.x - prev.x), seld ? T.sel : lineCol, w)
   }
   if (e.startArrow) {
     const f0 = pts[0]
     const f1 = pts[1]
-    arrowHead(c, f0.x, f0.y, Math.atan2(f0.y - f1.y, f0.x - f1.x), seld ? T.sel : lineCol)
+    arrowHead(c, f0.x, f0.y, Math.atan2(f0.y - f1.y, f0.x - f1.x), seld ? T.sel : lineCol, w)
   }
   if (e.animated) {
     const dotColor = e.dotColor || A.color

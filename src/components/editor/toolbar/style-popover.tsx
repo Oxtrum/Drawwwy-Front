@@ -1,4 +1,5 @@
-import { EXTRA_COLORS, PALETTE } from '../../../canvas/config'
+import { useState } from 'react'
+import { EXTRA_COLORS } from '../../../canvas/config'
 import type { LineStyle } from '../../../canvas/types'
 
 export function LineStyleTabs({ value, onChange }: { value: LineStyle; onChange: (v: LineStyle) => void }) {
@@ -45,31 +46,45 @@ export function SliderRow(
   )
 }
 
-export function ColorSection({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+export function ColorSection(
+  { value, onChange, recentColors }: { value: string; onChange: (c: string) => void; recentColors: string[] },
+) {
+  const [draft, setDraft] = useState<string | null>(null)
+
   return (
     <>
       <div className="style-section-head">
-        Colores de marca
+        Colores recientes
         <label className="add-color">
           <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
           Añadir
-          <input type="color" value={value} onChange={ev => onChange(ev.target.value)} />
+          <input type="color" value={draft ?? value ?? '#000000'} onChange={ev => setDraft(ev.target.value)} />
         </label>
       </div>
-      <div className="color-grid">
-        {PALETTE.map(p => (
-          <button
-            key={p.c}
-            className={'color-swatch' + (value.toLowerCase() === p.c.toLowerCase() ? ' sel' : '')}
-            style={{ background: p.c }}
-            title={p.n}
-            aria-label={p.n}
-            onClick={() => onChange(p.c)}
-          >
-            {value.toLowerCase() === p.c.toLowerCase() && <Check />}
+      {draft !== null && (
+        <div className="add-color-confirm">
+          <span className="add-color-preview" style={{ background: draft }} />
+          <button className="add-color-accept" onClick={() => { onChange(draft); setDraft(null) }}>Aceptar</button>
+          <button className="add-color-cancel" aria-label="Cancelar" onClick={() => setDraft(null)}>
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
-        ))}
-      </div>
+        </div>
+      )}
+      {recentColors.length > 0 && (
+        <div className="color-grid">
+          {recentColors.map(c => (
+            <button
+              key={c}
+              className={'color-swatch' + (value.toLowerCase() === c.toLowerCase() ? ' sel' : '')}
+              style={{ background: c }}
+              aria-label={c}
+              onClick={() => onChange(c)}
+            >
+              {value.toLowerCase() === c.toLowerCase() && <Check />}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="style-section-head">Todos los colores</div>
       <div className="color-grid scroll">
         {EXTRA_COLORS.map(c => (

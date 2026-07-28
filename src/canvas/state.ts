@@ -129,7 +129,6 @@ export class DocumentState {
   }
 
   newEdge(a: number, b: number, opts: Partial<Edge> = {}): Edge | null {
-    if (a === b) return null
     const page = this.currentPage()
     const e: Edge = {
       id: page.nextId++,
@@ -158,6 +157,24 @@ export class DocumentState {
 
   edgeById(id: number): Edge | undefined {
     return this.currentPage().edges.find(e => e.id === id)
+  }
+
+  /** Colores distintos ya presentes en el documento (todas las páginas), en
+   *  orden de aparición. Alimenta la sección "Colores recientes" del selector:
+   *  no hay historial propio, se deriva de lo que ya está dibujado. */
+  usedColors(): string[] {
+    const seen = new Set<string>()
+    for (const page of this.doc.pages) {
+      for (const n of page.nodes) {
+        if (n.color) seen.add(n.color.toLowerCase())
+        if (n.fill) seen.add(n.fill.toLowerCase())
+      }
+      for (const e of page.edges) {
+        if (e.lineColor) seen.add(e.lineColor.toLowerCase())
+        if (e.dotColor) seen.add(e.dotColor.toLowerCase())
+      }
+    }
+    return [...seen]
   }
 
   serializeProject(): ProjectFile {

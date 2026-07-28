@@ -1,6 +1,6 @@
 'use strict'
 
-import { DIR, SIDES } from './config'
+import { ARROW_OFF, DIR, SIDES } from './config'
 import type { Bounds, Edge, Node, Point, PointAng, Shape, Side } from './types'
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t
@@ -111,10 +111,28 @@ export function orthoRoute(p1: Point, d1: Point, p2: Point, d2: Point): Point[] 
   return out
 }
 
+/** Ruta para una arista que sale y vuelve al mismo nodo: un "bulto" rectangular
+ *  que sobresale del lado dado, entrando y saliendo por dos puntos distintos
+ *  de ese mismo lado (no hay otro nodo con el que triangular la dirección). */
+export function selfLoopRoute(n: Node, side: Side): Point[] {
+  const d = DIR[side]
+  const perp: Point = { x: d.y, y: d.x }
+  const half = (perp.x ? n.w : n.h) / 2
+  const t = Math.min(half * 0.6, 22)
+  const base = sidePoint(n, side)
+  const p1 = { x: base.x - perp.x * t, y: base.y - perp.y * t }
+  const p2 = { x: base.x + perp.x * t, y: base.y + perp.y * t }
+  const pad = ARROW_OFF * 2.2
+  const q1 = { x: p1.x + d.x * pad, y: p1.y + d.y * pad }
+  const q2 = { x: p2.x + d.x * pad, y: p2.y + d.y * pad }
+  return [p1, q1, q2, p2]
+}
+
 export function edgePoints(e: Edge, getNode: (id: number) => Node | undefined): Point[] {
   const A = getNode(e.from)
   const B = getNode(e.to)
   if (!A || !B) return []
+  if (e.from === e.to) return selfLoopRoute(A, e.fromSide || 'e')
   const wps = e.waypoints || []
   const tA = wps[0] || { x: B.x, y: B.y }
   const tB = wps[wps.length - 1] || { x: A.x, y: A.y }
