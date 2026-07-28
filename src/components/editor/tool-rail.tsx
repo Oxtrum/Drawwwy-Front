@@ -7,8 +7,8 @@ export function ToolRail() {
   useEditorStore(s => s.version)
   const shapesPanelOpen = useEditorStore(s => s.shapesPanelOpen)
   const toggleShapesPanel = useEditorStore(s => s.toggleShapesPanel)
-  const iconDrawerOpen = useEditorStore(s => s.iconDrawerOpen)
-  const toggleIconDrawer = useEditorStore(s => s.toggleIconDrawer)
+  const moreShapesOpen = useEditorStore(s => s.moreShapesOpen)
+  const toggleMoreShapes = useEditorStore(s => s.toggleMoreShapes)
   const fileRef = useRef<HTMLInputElement>(null)
 
   return (
@@ -22,6 +22,16 @@ export function ToolRail() {
         <span className="tip">Mover</span>
       </button>
       <button
+        className={engine.mode === 'hand' ? 'toggled' : ''}
+        aria-label="Mano: desplazar el lienzo (V)"
+        onClick={() => engine.setMode(engine.mode === 'hand' ? 'select' : 'hand')}
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M8 13V6a1.5 1.5 0 0 1 3 0v5M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11.5V6a1.5 1.5 0 0 1 3 0v7M8 13l-1.6-1.6a1.4 1.4 0 0 0-2 2L7 16.5C8.2 19 9.5 20 12.5 20c3.5 0 5.5-2 5.5-5.5V9a1.5 1.5 0 0 0-3 0" />
+        </svg>
+        <span className="tip">Mano</span>
+      </button>
+      <button
         className={engine.mode === 'connect' ? 'toggled' : ''}
         aria-label="Conectar con clics (C)"
         onClick={() => engine.setMode('connect')}
@@ -33,21 +43,24 @@ export function ToolRail() {
       <hr />
 
       <button
-        className={shapesPanelOpen ? 'toggled' : ''}
-        aria-label="Figuras"
-        onClick={() => { if (iconDrawerOpen) toggleIconDrawer(false); toggleShapesPanel() }}
+        className={shapesPanelOpen || moreShapesOpen ? 'toggled' : ''}
+        aria-label="Figuras e iconos"
+        onClick={() => {
+          if (moreShapesOpen) { toggleMoreShapes(false); return }
+          toggleShapesPanel()
+        }}
       >
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" /><circle cx="16.5" cy="7.5" r="3.5" /><path d="M12 17l-4-7h8z" /></svg>
         <span className="tip">Figuras</span>
       </button>
 
       <button
-        className={iconDrawerOpen ? 'toggled' : ''}
-        aria-label="Iconos cloud (GCP, AWS, Azure…)"
-        onClick={() => { toggleShapesPanel(false); toggleIconDrawer() }}
+        className={engine.pendingShape === 'text' ? 'toggled' : ''}
+        aria-label="Texto"
+        onClick={() => engine.selectShape(engine.pendingShape === 'text' ? null : 'text')}
       >
-        <svg viewBox="0 0 24 24"><path d="M7 17a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.6 1.4A3.5 3.5 0 0 1 17 17z" /></svg>
-        <span className="tip">Iconos</span>
+        <svg viewBox="0 0 24 24"><path d="M5 6h14M12 6v13" /></svg>
+        <span className="tip">Texto</span>
       </button>
 
       <button aria-label="Insertar imagen (o pega con Ctrl+V)" onClick={() => fileRef.current?.click()}>

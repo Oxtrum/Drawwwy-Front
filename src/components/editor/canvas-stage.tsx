@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { EditOverlay } from './edit-overlay'
+import { SelectionToolbar } from './toolbar/selection-toolbar'
+import { ContextMenu } from './context-menu'
 
 export function CanvasStage() {
   const engine = useEditorStore(s => s.engine)
@@ -20,6 +22,8 @@ export function CanvasStage() {
       <div id="wrap" ref={wrapRef}>
         <canvas id="cv" ref={canvasRef} />
         <EditOverlay />
+        <SelectionToolbar />
+        <ContextMenu />
       </div>
     </div>
   )

@@ -103,16 +103,30 @@ export function attachInteraction(eng: CanvasEngine): () => void {
   if (!cv) return () => {}
 
   let wasRightDrag = false
+  let shiftHeld = false
 
   const onContextMenu = (ev: MouseEvent): void => {
-    if (wasRightDrag) ev.preventDefault()
+    ev.preventDefault()
+    if (wasRightDrag) return
+    const p = toWorld(eng, ev)
+    const n = hitNode(eng, p.x, p.y)
+    const e = !n ? hitEdge(eng, p.x, p.y) : null
+    if (n) {
+      if (!eng.sel.selN.has(n.id)) eng.sel.selectOnly('node', n.id)
+    } else if (e) {
+      if (!eng.sel.selE.has(e.id)) eng.sel.selectOnly('edge', e.id)
+    } else {
+      eng.sel.clearSel()
+    }
+    eng.openContextMenu(ev.clientX, ev.clientY)
   }
 
   const onPointerDown = (ev: PointerEvent): void => {
-    if (ev.button === 1 || ev.button === 2 || (ev.button === 0 && ev.altKey)) {
+    if (ev.button === 1 || ev.button === 2 || (ev.button === 0 && (ev.altKey || eng.mode === 'hand'))) {
       if (ev.button !== 2) ev.preventDefault()
       eng.panDrag = { x: ev.clientX, y: ev.clientY, startX: eng.viewX, startY: eng.viewY, isRight: ev.button === 2, moved: false }
       cv.setPointerCapture(ev.pointerId)
+      cv.style.cursor = 'grabbing'
       return
     }
     if (ev.button !== 0) return
@@ -278,6 +292,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       }
       return
     }
+    if (eng.mode === 'hand') { cv.style.cursor = 'grab'; return }
     eng.hoverNode = hitNode(eng, p.x, p.y)
     if (!eng.hoverNode) {
       for (const nd of eng.state.currentPage().nodes) {
@@ -411,12 +426,20 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       eng.connecting = null
       eng.connectDrag = null
       eng.marquee = null
+      eng.contextMenu = null
       eng.notify()
     }
-    if (k === 'v') eng.setMode('select')
+    if (k === 'v') eng.setMode(eng.mode === 'hand' ? 'select' : 'hand')
     if (k === 'c') eng.setMode('connect')
     if (ev.key === ' ') { ev.preventDefault(); eng.togglePlay() }
+    if (ev.key === 'Shift') shiftHeld = true
   }
+
+  const onKeyUp = (ev: KeyboardEvent): void => {
+    if (ev.key === 'Shift') shiftHeld = false
+  }
+
+  const onBlur = (): void => { shiftHeld = false }
 
   const onPaste = (ev: ClipboardEvent): void => {
     const tag = (ev.target as HTMLElement | null)?.tagName
@@ -443,6 +466,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
 
   const onWheel = (ev: WheelEvent): void => {
     ev.preventDefault()
+    if (eng.contextMenu) eng.closeContextMenu()
     if (ev.ctrlKey || ev.metaKey) {
       const r = cv.getBoundingClientRect()
       const screenX = ev.clientX - r.left
@@ -454,6 +478,9 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       eng.viewZoom = newZoom
       eng.viewX = screenX - worldX * eng.viewZoom
       eng.viewY = screenY - worldY * eng.viewZoom
+      eng.commitEdit()
+    } else if (ev.shiftKey || shiftHeld) {
+      eng.viewX -= (ev.deltaX !== 0 ? ev.deltaX : ev.deltaY)
       eng.commitEdit()
     } else {
       eng.viewX -= ev.deltaX
@@ -481,6 +508,8 @@ export function attachInteraction(eng: CanvasEngine): () => void {
   cv.addEventListener('dragover', onDragOver)
   cv.addEventListener('drop', onDrop)
   document.addEventListener('keydown', onKeyDown)
+  document.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', onBlur)
   document.addEventListener('paste', onPaste)
 
   return () => {
@@ -493,6 +522,8 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     cv.removeEventListener('dragover', onDragOver)
     cv.removeEventListener('drop', onDrop)
     document.removeEventListener('keydown', onKeyDown)
+    document.removeEventListener('keyup', onKeyUp)
+    window.removeEventListener('blur', onBlur)
     document.removeEventListener('paste', onPaste)
   }
 }

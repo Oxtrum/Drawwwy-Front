@@ -40,7 +40,7 @@ export class CanvasEngine {
   ctx: CanvasRenderingContext2D | null = null
   wrap: HTMLElement | null = null
 
-  mode: 'select' | 'connect' = 'select'
+  mode: 'select' | 'connect' | 'hand' = 'select'
   pendingShape: Shape | null = null
   pendingIcon: string | null = null
   connecting: number | null = null
@@ -64,6 +64,7 @@ export class CanvasEngine {
 
   editing: Node | Edge | null = null
   editBox: EditBox | null = null
+  contextMenu: { x: number; y: number } | null = null
 
   onChange: (() => void) | null = null
   onEditBoxChange: ((box: EditBox | null) => void) | null = null
@@ -151,7 +152,7 @@ export class CanvasEngine {
     this.viewY = v.viewY
   }
 
-  setMode(mode: 'select' | 'connect'): void {
+  setMode(mode: 'select' | 'connect' | 'hand'): void {
     this.mode = mode
     this.connecting = null
     this.pendingShape = null
@@ -280,6 +281,17 @@ export class CanvasEngine {
     this.editing = null
     this.editBox = null
     this.onEditBoxChange?.(null)
+  }
+
+  openContextMenu(x: number, y: number): void {
+    this.contextMenu = { x, y }
+    this.notify()
+  }
+
+  closeContextMenu(): void {
+    if (!this.contextMenu) return
+    this.contextMenu = null
+    this.notify()
   }
 
   zoomBy(factor: number): void {

@@ -1,10 +1,10 @@
 import { CanvasStage } from '../../components/editor/canvas-stage'
 import { EditorHeader } from '../../components/editor/header'
 import { PagesBar } from '../../components/editor/pages-bar'
-import { PropertiesPanel } from '../../components/editor/properties-panel'
 import { ToolRail } from '../../components/editor/tool-rail'
 import { ShapesPanel } from '../../components/editor/shapes-panel'
-import { IconDrawer } from '../../components/ui/icon-drawer'
+import { MoreShapesPanel } from '../../components/ui/more-shapes-panel'
+import { AnimationModal } from '../../components/editor/animation-modal'
 
 export function EditorPage() {
   return (
@@ -14,10 +14,10 @@ export function EditorPage() {
         <ToolRail />
         <ShapesPanel />
         <CanvasStage />
-        <IconDrawer />
-        <PropertiesPanel />
+        <MoreShapesPanel />
       </main>
       <PagesBar />
+      <AnimationModal />
     </div>
   )
 }

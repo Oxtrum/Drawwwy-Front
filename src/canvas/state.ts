@@ -6,6 +6,7 @@ import type { Bounds, Document, Edge, Node, Page, Settings, Shape } from './type
 
 interface LegacyEdge extends Partial<Edge> {
   bidir?: boolean
+  dashed?: boolean
 }
 
 interface LegacyState {
@@ -114,6 +115,11 @@ export class DocumentState {
       h,
       label: shape === 'text' ? 'Texto' : (shape === 'icon' || shape === 'image') ? '' : 'Nodo',
       color: PALETTE[0].c,
+      fill: null,
+      fillOpacity: 1,
+      borderWidth: 2.5,
+      lineStyle: 'solid',
+      opacity: 1,
       pulse: false,
       order: page.nodes.length,
       ...extra,
@@ -135,7 +141,8 @@ export class DocumentState {
       waypoints: [],
       label: '',
       animated: true,
-      dashed: false,
+      lineStyle: 'solid',
+      lineWidth: 2,
       startArrow: false,
       endArrow: true,
       flowDir: 'normal',
@@ -232,6 +239,8 @@ export class DocumentState {
         if (!e.flowDir) e.flowDir = 'normal'
         if (!e.waypoints) e.waypoints = []
         if (!e.route) e.route = 'straight'
+        if (!e.lineStyle) e.lineStyle = e.dashed ? 'dashed' : 'solid'
+        if (e.lineWidth === undefined) e.lineWidth = 2
       }))
       if (d.settings) Object.assign(this.settings, d.settings)
       // Un documento guardado puede traer un tema ya retirado del sistema de diseño.

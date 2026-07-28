@@ -4,6 +4,8 @@ export type Shape = 'rect' | 'cylinder' | 'diamond' | 'circle' | 'hex' | 'text' 
 export type Side = 'n' | 'e' | 's' | 'w'
 export type Route = 'straight' | 'ortho'
 export type FlowDir = 'normal' | 'reverse' | 'alternate'
+export type LineStyle = 'solid' | 'dashed' | 'dotted'
+export type DotShape = 'circle' | 'triangle' | 'diamond' | 'star' | 'package' | 'mail'
 
 export interface Point {
   x: number
@@ -33,6 +35,12 @@ export interface Node {
   icon?: string
   img?: string
   fs?: number | null
+  /** Color de borde: usa `color`. Relleno independiente; sin valor cae a `color`. */
+  fill?: string | null
+  fillOpacity?: number
+  borderWidth?: number
+  lineStyle?: LineStyle
+  opacity?: number
 }
 
 export interface Edge {
@@ -45,12 +53,16 @@ export interface Edge {
   waypoints: Waypoint[]
   label: string
   animated: boolean
-  dashed: boolean
+  lineStyle: LineStyle
   startArrow: boolean
   endArrow: boolean
   flowDir: FlowDir
   lineColor?: string | null
   dotColor?: string | null
+  dotShape?: DotShape
+  dotSize?: number
+  dotSpeed?: number
+  lineWidth?: number
   fs?: number | null
 }
 
@@ -114,10 +126,9 @@ export interface ConnectDragState {
   fromSide: Side
 }
 
-export interface SingleSelection {
-  type: 'node' | 'edge'
-  obj: Node | Edge
-}
+export type SingleSelection =
+  | { type: 'node'; obj: Node }
+  | { type: 'edge'; obj: Edge }
 
 export interface ThemeColors {
   /** true en modos claros: invierte los contrastes de los adornos del canvas. */
@@ -132,6 +143,4 @@ export interface ThemeColors {
   sel: string
   /** Texto del placeholder del lienzo vacío. */
   hint: string
-  /** Opacidad del relleno de los nodos sobre este fondo. */
-  fillA: number
 }

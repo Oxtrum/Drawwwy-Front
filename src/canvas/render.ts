@@ -3,7 +3,7 @@
 import { ARROW_OFF, DIR, GRID, HANDLE, ICONS, PALETTE, SIDES, canvasFont, getImg, iconURL, themeOf } from './config'
 import { edgePoints, nearestAnchorSide, placementBounds, pointAt, sidePoint } from './geometry'
 import { DocumentState } from './state'
-import type { Bounds, Edge, MarqueeState, Node, Settings, ThemeColors } from './types'
+import type { Bounds, DotShape, Edge, MarqueeState, Node, Settings, ThemeColors } from './types'
 import type { CanvasEngine } from './engine'
 
 export interface RenderOpts {
@@ -65,6 +65,18 @@ export function shapePath(c: Ctx, n: Node): void {
   }
 }
 
+/** Prepara trazo/relleno del nodo; devuelve si hay relleno que pintar (una
+ *  figura recién colocada no tiene relleno hasta que el usuario elige uno). */
+function applyShapeStyle(c: Ctx, n: Node, glow: number): boolean {
+  c.strokeStyle = n.color
+  c.lineWidth = (n.borderWidth ?? 2.5) + glow * 1.5
+  if (n.lineStyle === 'dashed') c.setLineDash([10, 6])
+  else if (n.lineStyle === 'dotted') { c.setLineDash([1, 7]); c.lineCap = 'round' }
+  if (!n.fill) return false
+  c.fillStyle = DocumentState.hexA(n.fill, n.fillOpacity ?? 1)
+  return true
+}
+
 function drawLabelLines(c: Ctx, n: Node, theme: string, baseFs: number, cy: number): void {
   const T = themeOf(theme)
   c.fillStyle = n.shape === 'text' ? n.color : T.text
@@ -101,7 +113,7 @@ export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: bo
   const a = nodeAlpha(n, t, settings)
   if (a <= 0) return
   c.save()
-  c.globalAlpha = a
+  c.globalAlpha = a * (n.opacity ?? 1)
   const grow = settings.build ? DocumentState.lerp(0.85, 1, a) : 1
   c.translate(n.x, n.y); c.scale(grow, grow); c.translate(-n.x, -n.y)
   let glow = 0
@@ -127,27 +139,26 @@ export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: bo
     const ry = Math.min(16, h * 0.18)
     const top = y - h / 2
     const bot = y + h / 2
-    c.fillStyle = DocumentState.hexA(n.color, T.fillA)
-    c.strokeStyle = n.color
-    c.lineWidth = 2.5 + glow * 1.5
+    const hasFill = applyShapeStyle(c, n, glow)
     if (glow > 0) { c.shadowColor = n.color; c.shadowBlur = 18 * glow }
     c.beginPath()
     c.moveTo(x - w / 2, top + ry); c.lineTo(x - w / 2, bot - ry)
     c.bezierCurveTo(x - w / 2, bot + ry * 0.8, x + w / 2, bot + ry * 0.8, x + w / 2, bot - ry)
     c.lineTo(x + w / 2, top + ry)
     c.bezierCurveTo(x + w / 2, top - ry * 0.8, x - w / 2, top - ry * 0.8, x - w / 2, top + ry)
-    c.fill(); c.stroke()
+    if (hasFill) c.fill()
+    c.stroke()
     c.beginPath(); c.ellipse(x, top + ry, w / 2, ry, 0, 0, Math.PI * 2); c.stroke()
     c.shadowBlur = 0
     drawLabelLines(c, n, theme, 17, n.y + 6)
   } else if (n.shape === 'text') {
     drawLabelLines(c, n, theme, 22, n.y)
   } else {
-    c.fillStyle = DocumentState.hexA(n.color, T.fillA)
-    c.strokeStyle = n.color
-    c.lineWidth = 2.5 + glow * 1.5
+    const hasFill = applyShapeStyle(c, n, glow)
     if (glow > 0) { c.shadowColor = n.color; c.shadowBlur = 18 * glow }
-    shapePath(c, n); c.fill(); c.stroke()
+    shapePath(c, n)
+    if (hasFill) c.fill()
+    c.stroke()
     c.shadowBlur = 0
     drawLabelLines(c, n, theme, 17, n.y)
   }
@@ -177,6 +188,80 @@ function arrowHead(c: Ctx, x: number, y: number, ang: number, col: string): void
   c.restore()
 }
 
+/** Dibuja un marcador de flujo (el "paquete" que viaja por la arista) centrado en
+ *  (x, y). `ang` es la tangente de la trayectoria; solo el triángulo la usa para
+ *  apuntar en la dirección real de viaje (ya resuelta por el llamador para
+ *  reverse/alternate). El resto de formas son simétricas y quedan sin rotar. */
+function drawFlowMarker(c: Ctx, x: number, y: number, ang: number, shape: DotShape, size: number, color: string, alpha: number): void {
+  c.save()
+  c.translate(x, y)
+  if (shape === 'triangle') c.rotate(ang)
+
+  c.globalAlpha = alpha * 0.32
+  c.fillStyle = color
+  c.beginPath(); c.arc(0, 0, size * 1.8, 0, Math.PI * 2); c.fill()
+
+  c.globalAlpha = alpha
+  c.fillStyle = color
+  c.strokeStyle = color
+  c.lineWidth = Math.max(1, size * 0.22)
+  c.lineJoin = 'round'
+  c.lineCap = 'round'
+
+  switch (shape) {
+    case 'triangle':
+      c.beginPath()
+      c.moveTo(size * 1.35, 0); c.lineTo(-size * 0.85, -size * 0.95); c.lineTo(-size * 0.85, size * 0.95)
+      c.closePath(); c.fill()
+      break
+    case 'diamond':
+      c.beginPath()
+      c.moveTo(0, -size * 1.2); c.lineTo(size * 1.2, 0); c.lineTo(0, size * 1.2); c.lineTo(-size * 1.2, 0)
+      c.closePath(); c.fill()
+      break
+    case 'star': {
+      c.beginPath()
+      const spikes = 5
+      const outerR = size * 1.35
+      const innerR = size * 0.55
+      for (let i = 0; i < spikes * 2; i++) {
+        const r = i % 2 === 0 ? outerR : innerR
+        const a2 = (Math.PI / spikes) * i - Math.PI / 2
+        const px = Math.cos(a2) * r
+        const py = Math.sin(a2) * r
+        if (i === 0) c.moveTo(px, py); else c.lineTo(px, py)
+      }
+      c.closePath(); c.fill()
+      break
+    }
+    case 'package': {
+      const s = size * 1.15
+      c.beginPath()
+      roundRect(c, -s, -s, s * 2, s * 2, size * 0.25)
+      c.stroke()
+      c.beginPath()
+      c.moveTo(-s, -s * 0.15); c.lineTo(s, -s * 0.15)
+      c.moveTo(0, -s * 0.15); c.lineTo(0, s)
+      c.stroke()
+      break
+    }
+    case 'mail': {
+      const w = size * 1.5
+      const h = size * 1.05
+      c.beginPath()
+      roundRect(c, -w, -h, w * 2, h * 2, size * 0.2)
+      c.stroke()
+      c.beginPath()
+      c.moveTo(-w, -h); c.lineTo(0, h * 0.15); c.lineTo(w, -h)
+      c.stroke()
+      break
+    }
+    default:
+      c.beginPath(); c.arc(0, 0, size, 0, Math.PI * 2); c.fill()
+  }
+  c.restore()
+}
+
 export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: boolean, eng: CanvasEngine): void {
   const settings = eng.state.settings
   const A = eng.state.nodeById(e.from)
@@ -193,10 +278,12 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
   c.save()
   c.globalAlpha = a
   const lineCol = e.lineColor || T.edge
+  const w = e.lineWidth ?? 2
   c.strokeStyle = seld ? T.sel : lineCol
-  c.lineWidth = seld ? 2.6 : 2
+  c.lineWidth = seld ? w + 0.6 : w
   c.lineJoin = 'round'
-  if (e.dashed) c.setLineDash([8, 7])
+  if (e.lineStyle === 'dashed') c.setLineDash([8, 7])
+  else if (e.lineStyle === 'dotted') { c.setLineDash([1, 6]); c.lineCap = 'round' }
   c.beginPath(); c.moveTo(pts[0].x, pts[0].y)
   for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y)
   c.stroke(); c.setLineDash([])
@@ -211,22 +298,29 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
     arrowHead(c, f0.x, f0.y, Math.atan2(f0.y - f1.y, f0.x - f1.x), seld ? T.sel : lineCol)
   }
   if (e.animated) {
-    c.fillStyle = e.dotColor || A.color
+    const dotColor = e.dotColor || A.color
+    const dotShape = e.dotShape ?? 'circle'
+    const dotSize = e.dotSize ?? 5
+    const speed = e.dotSpeed ?? settings.speed
     const n = settings.dots
     for (let i = 0; i < n; i++) {
-      let base = (t * settings.speed + i / n) % 1
+      let base = (t * speed + i / n) % 1
       if (base < 0) base += 1
       let f = base
-      if (e.flowDir === 'reverse') f = 1 - base
-      else if (e.flowDir === 'alternate') f = 1 - Math.abs(1 - 2 * base)
+      let reversed = false
+      if (e.flowDir === 'reverse') {
+        f = 1 - base
+        reversed = true
+      } else if (e.flowDir === 'alternate') {
+        f = 1 - Math.abs(1 - 2 * base)
+        reversed = base >= 0.5
+      }
       const p = pointAt(pts, f)
       const fade = Math.min(1, Math.min(f, 1 - f) * 8)
-      c.globalAlpha = a * fade
-      c.beginPath(); c.arc(p.x, p.y, 5, 0, Math.PI * 2); c.fill()
-      c.globalAlpha = a * fade * 0.3
-      c.beginPath(); c.arc(p.x, p.y, 9, 0, Math.PI * 2); c.fill()
-      c.globalAlpha = a
+      const ang = reversed ? p.ang + Math.PI : p.ang
+      drawFlowMarker(c, p.x, p.y, ang, dotShape, dotSize, dotColor, a * fade)
     }
+    c.globalAlpha = a
   }
   if (e.label) {
     const m = pointAt(pts, 0.5)

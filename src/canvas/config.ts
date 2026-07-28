@@ -41,6 +41,19 @@ export const PALETTE: PaletteEntry[] = [
   { c: '#64748B', n: 'Externo' },
 ]
 
+/**
+ * Paleta genérica ("Todos los colores") para el selector de estilo de figuras
+ * y flechas: no tiene significado semántico, a diferencia de PALETTE.
+ */
+export const EXTRA_COLORS: string[] = [
+  '#FFFFFF', '#FDE68A', '#FDBA9C', '#F9A8C9',
+  '#86EFAC', '#93C5FD', '#C4B5FD', '#FACC15',
+  '#FB923C', '#F87171', '#4ADE80', '#60A5FA',
+  '#A78BFA', '#CA8A04', '#92400E', '#B91C1C',
+  '#E2E8F0', '#94A3B8', '#475569', '#0F172A',
+  '#64748B', '#22D3EE', '#0E7490', '#5EEAD4',
+]
+
 /** Primario del sistema de diseño y sus variantes. */
 export const BRAND = {
   primary: '#1763D0',
@@ -59,7 +72,6 @@ export const THEMES: Record<string, ThemeColors> = {
     lblBg: '#141414',
     sel: BRAND.primaryLight,
     hint: 'rgba(255,255,255,.4)',
-    fillA: 0.18,
   },
   claro: {
     light: true,
@@ -71,7 +83,6 @@ export const THEMES: Record<string, ThemeColors> = {
     lblBg: '#FFFFFF',
     sel: BRAND.primary,
     hint: 'rgba(100,116,139,.75)',
-    fillA: 0.12,
   },
 }
 

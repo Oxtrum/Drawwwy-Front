@@ -5,6 +5,7 @@ import { ThemeToggle } from '../ui/theme-toggle'
 export function EditorHeader() {
   const engine = useEditorStore(s => s.engine)
   useEditorStore(s => s.version)
+  const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
   const settings = engine.state.settings
 
   return (
@@ -35,6 +36,10 @@ export function EditorHeader() {
         </button>
         <button className="icon-btn" title="Centrar vista" onClick={() => engine.centerView()}>
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+        </button>
+        <div className="pill-divider" />
+        <button className="icon-btn" title="Velocidad de animación" onClick={() => toggleAnimationModal(true)}>
+          <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
         </button>
         <div className="pill-divider" />
         <button className="icon-btn primary" title="Reproducir / pausar (Espacio)" onClick={() => engine.togglePlay()}>
