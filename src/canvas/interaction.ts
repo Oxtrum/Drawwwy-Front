@@ -98,6 +98,37 @@ export function addImageFromBlob(eng: CanvasEngine, blob: Blob, x = W / 2, y = H
   fr.readAsDataURL(blob)
 }
 
+/** Lee el portapapeles del sistema con la Clipboard API (requiere gesto del
+ *  usuario: click de menú o tecla). Cubre lo que el evento pasivo `paste` del
+ *  DOM no puede: pegar una imagen externa desde el menú contextual, donde
+ *  hacer click en "Pegar" nunca dispara un evento `paste` real. Devuelve
+ *  `true` si encontró algo pegable (imagen o el clip interno serializado). */
+export async function pasteFromSystemClipboard(eng: CanvasEngine, x: number, y: number): Promise<boolean> {
+  try {
+    const items = await navigator.clipboard?.read?.()
+    if (!items) return false
+    for (const item of items) {
+      const imgType = item.types.find(t => t.startsWith('image/'))
+      if (imgType) {
+        addImageFromBlob(eng, await item.getType(imgType), x, y)
+        return true
+      }
+    }
+    for (const item of items) {
+      if (!item.types.includes('text/plain')) continue
+      const txt = await (await item.getType('text/plain')).text()
+      if (!txt.startsWith(CLIP_PREFIX)) continue
+      try { eng.sel.clip = JSON.parse(txt.slice(CLIP_PREFIX.length)) } catch { continue }
+      eng.sel.pasteClip()
+      eng.notify()
+      return true
+    }
+  } catch {
+    // Sin permiso de portapapeles (o vacío): quien llama cae al clip interno.
+  }
+  return false
+}
+
 export function attachInteraction(eng: CanvasEngine): () => void {
   const cv = eng.canvas
   if (!cv) return () => {}
@@ -417,7 +448,11 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     if (ctl && k === 'd') { ev.preventDefault(); eng.sel.dupSel(); eng.notify(); return }
     if (ctl && k === 'v') {
       if (eng.pasteTimer !== null) clearTimeout(eng.pasteTimer)
-      eng.pasteTimer = setTimeout(() => { eng.sel.pasteClip(); eng.notify() }, 140)
+      eng.pasteTimer = setTimeout(() => {
+        pasteFromSystemClipboard(eng, eng.mouse.x, eng.mouse.y).then(ok => {
+          if (!ok && eng.sel.clip) { eng.sel.pasteClip(); eng.notify() }
+        })
+      }, 140)
       return
     }
     if (ev.key === 'Delete' || ev.key === 'Backspace') { eng.sel.deleteSel(); eng.notify() }

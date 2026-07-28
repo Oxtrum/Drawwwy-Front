@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { useClickOutside } from '../../hooks/use-click-outside'
+import { pasteFromSystemClipboard, toWorld } from '../../canvas/interaction'
 import type { ArrangeDir } from '../../canvas/selection'
 import type { CanvasEngine } from '../../canvas/engine'
 
@@ -120,7 +121,14 @@ export function ContextMenu() {
 
   const close = (): void => { engine.closeContextMenu(); setArrangeOpen(false) }
   const hasSel = engine.sel.selN.size + engine.sel.selE.size > 0
-  const hasClip = !!engine.sel.clip
+
+  const paste = (): void => {
+    const p = toWorld(engine, { clientX: menu.x, clientY: menu.y })
+    pasteFromSystemClipboard(engine, p.x, p.y).then(ok => {
+      if (!ok && engine.sel.clip) { engine.sel.pasteClip(); engine.notify() }
+    })
+    close()
+  }
 
   return (
     <div className="ctx-menu-wrap" ref={wrapRef} style={style}>
@@ -129,7 +137,7 @@ export function ContextMenu() {
           <>
             <MenuItem icon={<CopyIcon />} label="Copiar" shortcut="Ctrl+C" onClick={() => { engine.sel.copySel(); close() }} />
             <MenuItem icon={<CutIcon />} label="Cortar" shortcut="Ctrl+X" onClick={() => { engine.sel.cutSel(); engine.notify(); close() }} />
-            <MenuItem icon={<PasteIcon />} label="Pegar" shortcut="Ctrl+V" disabled={!hasClip} onClick={() => { engine.sel.pasteClip(); engine.notify(); close() }} />
+            <MenuItem icon={<PasteIcon />} label="Pegar" shortcut="Ctrl+V" onClick={paste} />
             <MenuItem icon={<DuplicateIcon />} label="Duplicar" shortcut="Ctrl+D" onClick={() => { engine.sel.dupSel(); engine.notify(); close() }} />
             <MenuItem icon={<DeleteIcon />} label="Eliminar" shortcut="Supr" danger onClick={() => { engine.sel.deleteSel(); engine.notify(); close() }} />
             <div className="ctx-sep" />
@@ -148,7 +156,7 @@ export function ContextMenu() {
           </>
         ) : (
           <>
-            <MenuItem icon={<PasteIcon />} label="Pegar" shortcut="Ctrl+V" disabled={!hasClip} onClick={() => { engine.sel.pasteClip(); engine.notify(); close() }} />
+            <MenuItem icon={<PasteIcon />} label="Pegar" shortcut="Ctrl+V" onClick={paste} />
             <MenuItem
               icon={<SelectAllIcon />} label="Seleccionar todo" shortcut="Ctrl+A"
               disabled={!engine.state.currentPage().nodes.length && !engine.state.currentPage().edges.length}
