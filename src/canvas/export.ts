@@ -15,6 +15,11 @@ export interface PdfExportOptions extends RasterExportOptions {
   filename?: string
 }
 
+export interface ThumbnailOptions extends RasterExportOptions {
+  width?: number
+  height?: number
+}
+
 function pageAt(eng: CanvasEngine, pageIndex: number): Page {
   const page = eng.state.doc.pages[pageIndex]
   if (!page) throw new Error('La pagina solicitada no existe')
@@ -136,6 +141,33 @@ export async function exportCurrentPageAsJpg(
 ): Promise<Blob> {
   const canvas = await renderCurrentPageToCanvas(eng, options)
   return canvasToBlob(canvas, 'image/jpeg', options.quality ?? 0.92)
+}
+
+export async function renderCurrentPageThumbnail(
+  eng: CanvasEngine,
+  options: ThumbnailOptions = {},
+): Promise<string> {
+  const source = await renderCurrentPageToCanvas(eng, {
+    scale: options.scale ?? 0.5,
+    margin: options.margin ?? 40,
+    background: options.background,
+  })
+  const width = options.width ?? 320
+  const height = options.height ?? 180
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('No se pudo crear el thumbnail')
+
+  const theme = themeOf(eng.state.doc.theme)
+  ctx.fillStyle = options.background ?? theme.bg
+  ctx.fillRect(0, 0, width, height)
+  const ratio = Math.min(width / source.width, height / source.height)
+  const imageWidth = source.width * ratio
+  const imageHeight = source.height * ratio
+  ctx.drawImage(source, (width - imageWidth) / 2, (height - imageHeight) / 2, imageWidth, imageHeight)
+  return canvas.toDataURL('image/jpeg', options.quality ?? 0.72)
 }
 
 export async function exportDocumentAsPdf(

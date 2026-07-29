@@ -1,69 +1,43 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Project } from '../../lib/stores/project-store'
-import { useProjectStore } from '../../lib/stores/project-store'
 import { useClickOutside } from '../../lib/hooks/use-click-outside'
 import { relativeTime } from '../../lib/utils'
 
 interface ProjectCardProps {
   project: Project
+  onRequestRename: (project: Project) => void
   onRequestDelete: (project: Project) => void
 }
 
-export function ProjectCard({ project, onRequestDelete }: ProjectCardProps) {
+export function ProjectCard({ project, onRequestRename, onRequestDelete }: ProjectCardProps) {
   const navigate = useNavigate()
-  const renameProject = useProjectStore(s => s.renameProject)
-  const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(project.name)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen)
 
-  const commitRename = (): void => {
-    setEditing(false)
-    if (name.trim() && name.trim() !== project.name) renameProject(project.id, name)
-    else setName(project.name)
-  }
-
-  const startRename = (): void => {
+  const requestRename = (): void => {
     setMenuOpen(false)
-    setName(project.name)
-    setEditing(true)
+    onRequestRename(project)
   }
 
   return (
     <div
       className="project-card"
-      onClick={() => !editing && navigate(`/editor/${project.id}`)}
+      onClick={() => navigate(`/editor/${project.id}`)}
     >
       <div className="preview">
-        <span>{project.name}</span>
+        {project.thumbnailUrl
+          ? <img src={project.thumbnailUrl} alt="" />
+          : <span>{project.name}</span>
+        }
       </div>
       <div className="meta">
         <div className="name-row">
-          {editing ? (
-            <input
-              className="name-input"
-              autoFocus
-              value={name}
-              onClick={ev => ev.stopPropagation()}
-              onChange={ev => setName(ev.target.value)}
-              onBlur={commitRename}
-              onKeyDown={ev => {
-                if (ev.key === 'Enter') { ev.preventDefault(); commitRename() }
-                if (ev.key === 'Escape') { setName(project.name); setEditing(false) }
-              }}
-            />
-          ) : (
-            <span
-              className="name"
-              onClick={ev => { ev.stopPropagation(); startRename() }}
-              title="Clic para renombrar"
-            >
-              {project.name}
-            </span>
-          )}
+          <span className="name" title={project.name}>
+            {project.name}
+          </span>
 
           <div className="ctx-wrap" ref={menuRef}>
             <button
@@ -81,7 +55,7 @@ export function ProjectCard({ project, onRequestDelete }: ProjectCardProps) {
             </button>
             {menuOpen && (
               <div className="ctx-menu" onClick={ev => ev.stopPropagation()}>
-                <button onClick={startRename}>Renombrar</button>
+                <button onClick={requestRename}>Renombrar</button>
                 <button
                   className="danger"
                   onClick={() => { setMenuOpen(false); onRequestDelete(project) }}
@@ -93,6 +67,7 @@ export function ProjectCard({ project, onRequestDelete }: ProjectCardProps) {
           </div>
         </div>
         <span className="date">Editado {relativeTime(project.updatedAt)}</span>
+        <span className="date">{project.source === 'remote' ? 'Nube' : 'Local'}</span>
       </div>
     </div>
   )

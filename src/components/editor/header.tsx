@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { exportCurrentPageAsJpg, exportDocumentAsPdf } from '../../canvas/export'
+import { useNavigate } from 'react-router-dom'
+import { exportCurrentPageAsJpg, exportDocumentAsPdf, renderCurrentPageThumbnail } from '../../canvas/export'
 import { createDrwyFile, downloadBlob, DRWY_MIME, parseDrwyText, sanitizeFilename } from '../../lib/drwy/format'
+import { useAuthStore } from '../../lib/stores/auth-store'
 import { useEditorStore } from '../../lib/stores/editor-store'
+import { useProjectStore } from '../../lib/stores/project-store'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
 
 export function EditorHeader() {
+  const navigate = useNavigate()
   const engine = useEditorStore(s => s.engine)
   useEditorStore(s => s.version)
   const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
+  const authStatus = useAuthStore(s => s.status)
+  const saveStatus = useProjectStore(s => s.saveStatus)
+  const activeProject = useProjectStore(s => s.activeProject)
+  const saveActiveProject = useProjectStore(s => s.saveActiveProject)
+  const saveDocumentAsRemote = useProjectStore(s => s.saveDocumentAsRemote)
   const settings = engine.state.settings
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(engine.state.doc.name)
@@ -84,9 +93,46 @@ export function EditorHeader() {
     }
   }
 
+  const handleCloudSave = async (): Promise<void> => {
+    if (authStatus !== 'authenticated') {
+      window.alert('Para guardar en la nube debes iniciar sesion. El diagrama local se mantiene intacto.')
+      return
+    }
+    if (activeProject?.source === 'remote') return
+    const thumbnail = await renderCurrentPageThumbnail(engine).catch(() => null)
+    const project = await saveDocumentAsRemote(engine.serialize(), engine.state.doc.name, thumbnail)
+    if (project) navigate(`/editor/${project.id}`, { replace: true })
+  }
+
+  const handleBackToDashboard = async (): Promise<void> => {
+    engine.commitEdit()
+    if (activeProject) {
+      await saveActiveProject(engine.serialize(), engine.state.doc.name)
+    }
+    navigate('/')
+  }
+
+  const saveText = saveStatus === 'dirty'
+    ? 'Sin guardar'
+    : saveStatus === 'saving'
+      ? 'Guardando'
+      : saveStatus === 'saved'
+        ? activeProject?.source === 'remote' ? 'Guardado en nube' : 'Guardado local'
+        : saveStatus === 'error'
+          ? 'Error al guardar'
+          : saveStatus === 'conflict'
+            ? 'Conflicto remoto'
+            : activeProject?.source === 'remote'
+              ? 'Nube'
+              : 'Local'
+
   return (
     <header>
       <div className="header-pill">
+        <button className="icon-btn" title="Volver al dashboard" aria-label="Volver al dashboard" onClick={() => void handleBackToDashboard()}>
+          <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /><path d="M9 12h12" /><path d="M3 4v16" /></svg>
+        </button>
+        <div className="pill-divider" />
         <Logo />
         {editing ? (
           <input
@@ -133,6 +179,10 @@ export function EditorHeader() {
         <button className="icon-btn" title="Exportar documento como PDF" aria-label="Exportar documento como PDF" onClick={() => void handleExportPdf()}>
           <svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z" /><path d="M14 2v5h5M8 15h8M8 18h5M8 12h8" /></svg>
         </button>
+        <button className={activeProject?.source === 'remote' ? 'toggled icon-btn' : 'icon-btn'} title="Guardar en la nube" aria-label="Guardar en la nube" onClick={() => void handleCloudSave()}>
+          <svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.1 8.5 4.5 4.5 0 0 0 7 18z" /><path d="M12 12v7M9 16l3 3 3-3" /></svg>
+        </button>
+        <span className="save-status">{saveText}</span>
         <div className="pill-divider" />
         <ThemeToggle />
         <div className="pill-divider" />

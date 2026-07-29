@@ -11,6 +11,45 @@
   padding:0 24px; height:60px; flex-shrink:0;
   background:var(--surface); border-bottom:1px solid var(--border);
 }
+.account-menu-wrap{position:relative; flex-shrink:0;}
+.account-btn{
+  width:34px; height:34px; padding:0; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden; background:var(--surface-2); border:1px solid var(--border);
+}
+.account-btn:hover, .account-btn[aria-expanded="true"]{
+  border-color:var(--border-strong); background:var(--surface-hover);
+}
+.account-btn img{width:100%; height:100%; object-fit:cover; display:block;}
+.account-btn span{
+  color:var(--text); font-size:var(--fs-xs); font-weight:700;
+  letter-spacing:0;
+}
+.account-menu{
+  position:absolute; right:0; top:calc(100% + 8px); z-index:40;
+  width:240px; padding:6px;
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--r-lg); box-shadow:var(--shadow-lg);
+}
+.account-meta{
+  display:flex; flex-direction:column; gap:2px;
+  padding:9px 10px 10px; border-bottom:1px solid var(--border);
+  margin-bottom:4px;
+}
+.account-meta strong{
+  color:var(--text); font-size:var(--fs-sm); font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.account-meta span{
+  color:var(--muted); font-size:var(--fs-xs);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.account-menu button{
+  width:100%; justify-content:flex-start; text-align:left;
+  background:transparent; border-color:transparent;
+  padding:8px 10px;
+}
+.account-menu button:hover{background:var(--surface-hover);}
 
 .dashboard{
   flex:1; width:100%;
@@ -24,7 +63,7 @@
 
 .project-card{
   background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
-  overflow:hidden; cursor:pointer;
+  overflow:visible; cursor:pointer;
   transition:border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .project-card:hover{border-color:var(--border-strong); box-shadow:var(--shadow-sm); transform:translateY(-1px);}
@@ -32,6 +71,8 @@
 
 .project-card .preview{
   aspect-ratio:4 / 3;
+  overflow:hidden;
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
   background-color:var(--bg);
   background-image:
     linear-gradient(var(--border) 1px, transparent 1px),
@@ -44,6 +85,10 @@
   font-size:15px; font-weight:600; color:var(--muted); text-align:center;
   letter-spacing:-.01em;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.project-card .preview img{
+  width:100%; height:100%; object-fit:contain; display:block;
+  border-radius:var(--r-sm);
 }
 
 .project-card .meta{padding:12px 8px 14px 14px; display:flex; flex-direction:column; gap:3px;}
@@ -70,7 +115,7 @@
 .menu-btn svg{width:16px; height:16px;}
 
 .ctx-menu{
-  position:absolute; right:0; top:calc(100% + 4px); z-index:30;
+  position:absolute; right:0; top:calc(100% + 4px); z-index:80;
   background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-md);
   box-shadow:var(--shadow-lg); padding:4px; min-width:150px;
 }
@@ -86,6 +131,18 @@ button.danger-solid{
   background:var(--danger); border-color:var(--danger); color:#fff; font-weight:600;
 }
 button.danger-solid:hover{filter:brightness(1.08);}
+
+.dashboard-modal{width:380px; max-width:calc(100vw - 32px);}
+.modal-field{
+  display:flex; flex-direction:column; gap:7px; margin-top:8px;
+  color:var(--muted); font-size:var(--fs-sm);
+}
+.modal-field input{
+  width:100%; font:inherit; color:var(--text);
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--r-md); padding:8px 10px;
+}
+.modal-field input:focus{border-color:var(--brand);}
 
 .dashboard-empty{
   display:flex; flex-direction:column; align-items:center; justify-content:center;
