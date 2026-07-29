@@ -7,6 +7,7 @@ import { ToolRail } from '../../components/editor/tool-rail'
 import { ShapesPanel } from '../../components/editor/shapes-panel'
 import { MoreShapesPanel } from '../../components/ui/more-shapes-panel'
 import { AnimationModal } from '../../components/editor/animation-modal'
+import { renderCurrentPageThumbnail } from '../../canvas/export'
 import { useAuthStore } from '../../lib/stores/auth-store'
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { useProjectStore } from '../../lib/stores/project-store'
@@ -24,7 +25,17 @@ export function EditorPage() {
   const applyingRef = useRef(false)
   const lastSnapshotRef = useRef('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activeProjectRef = useRef(activeProject)
+  const saveActiveProjectRef = useRef(saveActiveProject)
   const AUTOSAVE_DELAY_MS = 2500
+
+  useEffect(() => {
+    activeProjectRef.current = activeProject
+  }, [activeProject])
+
+  useEffect(() => {
+    saveActiveProjectRef.current = saveActiveProject
+  }, [saveActiveProject])
 
   useEffect(() => {
     let cancelled = false
@@ -55,15 +66,22 @@ export function EditorPage() {
     markDirty()
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      void saveActiveProject(engine.serialize(), engine.state.doc.name)
+      void renderCurrentPageThumbnail(engine)
+        .catch(() => null)
+        .then(thumbnail => saveActiveProject(engine.serialize(), engine.state.doc.name, thumbnail))
     }, AUTOSAVE_DELAY_MS)
   }, [activeProject, engine, markDirty, saveActiveProject, version])
 
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (!activeProjectRef.current) return
+      engine.commitEdit()
+      void renderCurrentPageThumbnail(engine)
+        .catch(() => null)
+        .then(thumbnail => saveActiveProjectRef.current(engine.serialize(), engine.state.doc.name, thumbnail))
     }
-  }, [])
+  }, [engine])
 
   return (
     <div className="editor-shell">

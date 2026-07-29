@@ -107,7 +107,8 @@ export function EditorHeader() {
   const handleBackToDashboard = async (): Promise<void> => {
     engine.commitEdit()
     if (activeProject) {
-      await saveActiveProject(engine.serialize(), engine.state.doc.name)
+      const thumbnail = await renderCurrentPageThumbnail(engine).catch(() => null)
+      await saveActiveProject(engine.serialize(), engine.state.doc.name, thumbnail)
     }
     navigate('/')
   }
