@@ -2,7 +2,7 @@
 
 import { GRID } from './config'
 import { DocumentState } from './state'
-import type { Edge, Node, SingleSelection } from './types'
+import type { Edge, Node, Page, SingleSelection } from './types'
 
 export interface Clip {
   nodes: Node[]
@@ -17,6 +17,26 @@ export interface PageSnap {
 export const CLIP_PREFIX = 'drawwwy::'
 
 export type ArrangeDir = 'front' | 'forward' | 'backward' | 'back'
+
+interface ZItem {
+  id: number
+  z: number
+  obj: Node | Edge
+}
+
+/** Nodos y aristas de la página como una sola lista ordenada por z (fondo a
+ *  frente): "traer al frente"/"enviar al fondo" opera sobre este orden único
+ *  en vez de reordenar cada arreglo por separado, para que una arista pueda
+ *  quedar por encima o por debajo de un nodo. Los IDs son únicos entre
+ *  ambos tipos dentro de una página (comparten el contador `nextId`). */
+function mergedItems(page: Page): ZItem[] {
+  const items: ZItem[] = [
+    ...page.nodes.map(n => ({ id: n.id, z: n.z, obj: n as Node | Edge })),
+    ...page.edges.map(e => ({ id: e.id, z: e.z, obj: e as Node | Edge })),
+  ]
+  items.sort((a, b) => a.z - b.z)
+  return items
+}
 
 function withId<T extends { id: number }>(arr: T[], ids: Set<number>, dir: ArrangeDir): T[] {
   if (dir === 'front' || dir === 'back') {
@@ -143,6 +163,7 @@ export class SelectionManager {
     clip.nodes.forEach(n => {
       const c = DocumentState.deep(n)
       map[n.id] = c.id = page.nextId++
+      c.z = this.state.nextZ(page)
       c.x += GRID
       c.y += GRID
       c.order = page.nodes.length
@@ -152,6 +173,7 @@ export class SelectionManager {
     clip.edges.forEach(e => {
       const c = DocumentState.deep(e)
       c.id = page.nextId++
+      c.z = this.state.nextZ(page)
       c.from = map[e.from] ?? e.from
       c.to = map[e.to] ?? e.to
       ;(c.waypoints || []).forEach(w => { w.x += GRID; w.y += GRID })
@@ -170,17 +192,23 @@ export class SelectionManager {
     this.clip = keep
   }
 
+  private selectedIds(): Set<number> {
+    return new Set<number>([...this.selN, ...this.selE])
+  }
+
   canArrange(dir: ArrangeDir): boolean {
+    const ids = this.selectedIds()
+    if (!ids.size) return false
     const page = this.state.currentPage()
-    return arrangeMoves(page.nodes, this.selN, dir) || arrangeMoves(page.edges, this.selE, dir)
+    return arrangeMoves(mergedItems(page), ids, dir)
   }
 
   arrange(dir: ArrangeDir): void {
     if (!this.canArrange(dir)) return
     this.pushUndo()
     const page = this.state.currentPage()
-    if (this.selN.size) page.nodes = withId(page.nodes, this.selN, dir)
-    if (this.selE.size) page.edges = withId(page.edges, this.selE, dir)
+    const ordered = withId(mergedItems(page), this.selectedIds(), dir)
+    ordered.forEach((item, i) => { item.obj.z = i })
     this.state.scheduleAutosave()
     this.notify()
   }

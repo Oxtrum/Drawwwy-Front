@@ -7,6 +7,7 @@ export const H = 1440
 export const GRID = 40
 export const ARROW_OFF = 24
 export const HANDLE = 7
+export const HANDLE_MAX = 26
 
 /**
  * Tipografía del lienzo. Debe coincidir con --font-sans / --font-mono de styles/index.css:
