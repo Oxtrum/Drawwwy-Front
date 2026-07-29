@@ -103,12 +103,34 @@ export class DocumentState {
     }
   }
 
+  /** Próximo z-index libre en la página: el espacio de apilado es compartido
+   *  entre nodos y aristas, así "traer al frente"/"enviar al fondo" puede
+   *  intercalar ambos tipos en vez de que las aristas queden siempre debajo. */
+  nextZ(page: Page): number {
+    let max = -1
+    for (const n of page.nodes) if (n.z > max) max = n.z
+    for (const e of page.edges) if (e.z > max) max = e.z
+    return max + 1
+  }
+
+  /** Nodos y aristas de la página combinados en un solo orden de apilado,
+   *  del fondo al frente. Fuente única de verdad para dibujado y hit-test. */
+  zOrder(page: Page = this.currentPage()): Array<{ type: 'node'; obj: Node } | { type: 'edge'; obj: Edge }> {
+    const items: Array<{ type: 'node'; obj: Node } | { type: 'edge'; obj: Edge }> = [
+      ...page.nodes.map(obj => ({ type: 'node' as const, obj })),
+      ...page.edges.map(obj => ({ type: 'edge' as const, obj })),
+    ]
+    items.sort((a, b) => a.obj.z - b.obj.z)
+    return items
+  }
+
   newNode(shape: Shape, x: number, y: number, extra: Partial<Node> = {}): Node {
     const page = this.currentPage()
     const [w, h] = NODE_SIZES[shape]
     const defaultColor = shape === 'icon' && extra.icon ? (iconBg[extra.icon] || PALETTE[0].c) : PALETTE[0].c
     const n: Node = {
       id: page.nextId++,
+      z: this.nextZ(page),
       shape,
       x: DocumentState.snap(x),
       y: DocumentState.snap(y),
@@ -133,6 +155,7 @@ export class DocumentState {
     const page = this.currentPage()
     const e: Edge = {
       id: page.nextId++,
+      z: this.nextZ(page),
       from: a,
       to: b,
       fromSide: null,
@@ -266,6 +289,16 @@ export class DocumentState {
         if (!e.lineStyle) e.lineStyle = e.dashed ? 'dashed' : 'solid'
         if (e.lineWidth === undefined) e.lineWidth = 2
       }))
+      // Documentos guardados antes de que existiera el z-index compartido: se
+      // inicializa preservando el orden visual previo (aristas debajo de todos
+      // los nodos) para no alterar diagramas ya guardados al abrirlos.
+      this.doc.pages.forEach(pg => {
+        const needsInit = pg.nodes.some(n => typeof n.z !== 'number') || pg.edges.some(e => typeof e.z !== 'number')
+        if (!needsInit) return
+        let z = 0
+        pg.edges.forEach(e => { e.z = z++ })
+        pg.nodes.forEach(n => { n.z = z++ })
+      })
       if (d.settings) Object.assign(this.settings, d.settings)
       // Un documento guardado puede traer un tema ya retirado del sistema de diseño.
       this.doc.theme = resolveTheme(this.doc.theme)

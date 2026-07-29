@@ -1,6 +1,6 @@
 'use strict'
 
-import { ARROW_OFF, DIR, FONT_SANS, GRID, HANDLE, ICONS, PALETTE, SIDES, canvasFont, getImg, iconGlyphURL, themeOf } from './config'
+import { ARROW_OFF, DIR, FONT_SANS, GRID, HANDLE, HANDLE_MAX, ICONS, PALETTE, SIDES, canvasFont, getImg, iconGlyphURL, themeOf } from './config'
 import { edgePoints, nearestAnchorSide, placementBounds, pointAt, sidePoint } from './geometry'
 import { DocumentState } from './state'
 import type { Bounds, DotShape, Edge, MarqueeState, Node, Settings, ThemeColors } from './types'
@@ -116,6 +116,13 @@ export function nodeCorners(n: Node): Array<[number, number]> {
   ]
 }
 
+/** Tamaño del cuadradito de resize en cada esquina: crece con el nodo (para
+ *  que siga siendo fácil de agarrar en imágenes/figuras grandes) pero no pasa
+ *  de HANDLE_MAX para no volverse un estorbo visual en nodos enormes. */
+export function handleSize(n: Node): number {
+  return DocumentState.clamp(Math.min(n.w, n.h) * 0.09, HANDLE, HANDLE_MAX)
+}
+
 export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: boolean, eng: CanvasEngine): void {
   const T = themeOf(theme)
   const settings = eng.state.settings
@@ -201,8 +208,9 @@ export function drawNode(c: Ctx, n: Node, t: number, theme: string, isExport: bo
     const s = eng.sel.singleSel()
     if (s && s.type === 'node' && s.obj && s.obj.id === n.id) {
       c.fillStyle = T.light ? '#FFFFFF' : '#F8FAFC'; c.strokeStyle = T.sel; c.lineWidth = 1.5
+      const hs = handleSize(n)
       for (const [cx, cy] of nodeCorners(n)) {
-        c.beginPath(); c.rect(cx - HANDLE / 2, cy - HANDLE / 2, HANDLE, HANDLE); c.fill(); c.stroke()
+        c.beginPath(); c.rect(cx - hs / 2, cy - hs / 2, hs, hs); c.fill(); c.stroke()
       }
     }
     c.restore()
@@ -415,8 +423,10 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
       for (let y = startY; y < b.y + b.h; y += GRID) { c.moveTo(b.x, y); c.lineTo(b.x + b.w, y) }
       c.stroke()
     }
-    for (const e of page.edges) drawEdge(c, e, t, theme, isExport, eng)
-    for (const n of page.nodes) drawNode(c, n, t, theme, isExport, eng)
+    for (const item of state.zOrder(page)) {
+      if (item.type === 'edge') drawEdge(c, item.obj, t, theme, isExport, eng)
+      else drawNode(c, item.obj, t, theme, isExport, eng)
+    }
     return
   }
 
@@ -446,8 +456,10 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
     c.stroke()
   }
 
-  for (const e of page.edges) drawEdge(c, e, t, theme, isExport, eng)
-  for (const n of page.nodes) drawNode(c, n, t, theme, isExport, eng)
+  for (const item of state.zOrder(page)) {
+    if (item.type === 'edge') drawEdge(c, item.obj, t, theme, isExport, eng)
+    else drawNode(c, item.obj, t, theme, isExport, eng)
+  }
 
   if (eng.placement) {
     const placement = eng.placement
@@ -455,6 +467,7 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
     const b = placementBounds(placement.start, placement.current, shape)
     const preview: Node = {
       id: -1,
+      z: 0,
       shape,
       x: b.x + b.w / 2,
       y: b.y + b.h / 2,

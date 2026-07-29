@@ -2,7 +2,7 @@
 
 import { ARROW_OFF, DIR, ICONS, SIDES, W, H } from './config'
 import { edgePoints, nearestAnchorSide, placementBounds, pointAt, sideOfPoint, sidePoint } from './geometry'
-import { nodeCorners, normRect } from './render'
+import { handleSize, nodeCorners, normRect } from './render'
 import { DocumentState } from './state'
 import { CLIP_PREFIX } from './selection'
 import type { Edge, Node, Point, Side } from './types'
@@ -27,29 +27,42 @@ export function toWorld(eng: CanvasEngine, ev: { clientX: number; clientY: numbe
   return { x: (screenX - eng.viewX) / eng.viewZoom, y: (screenY - eng.viewY) / eng.viewZoom }
 }
 
+function nodeHitTest(n: Node, x: number, y: number): boolean {
+  return Math.abs(x - n.x) <= n.w / 2 + 4 && Math.abs(y - n.y) <= n.h / 2 + 4
+}
+
+function edgeHitTest(eng: CanvasEngine, e: Edge, x: number, y: number): boolean {
+  const pts = edgePoints(e, id => eng.state.nodeById(id))
+  for (let j = 1; j < pts.length; j++) {
+    const p1 = pts[j - 1]
+    const p2 = pts[j]
+    const L2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
+    if (L2 === 0) continue
+    let u = ((x - p1.x) * (p2.x - p1.x) + (y - p1.y) * (p2.y - p1.y)) / L2
+    u = DocumentState.clamp(u, 0, 1)
+    const d = Math.hypot(x - (p1.x + u * (p2.x - p1.x)), y - (p1.y + u * (p2.y - p1.y)))
+    if (d < 8) return true
+  }
+  return false
+}
+
 export function hitNode(eng: CanvasEngine, x: number, y: number): Node | null {
   const ns = eng.state.currentPage().nodes
   for (let i = ns.length - 1; i >= 0; i--) {
-    const n = ns[i]
-    if (Math.abs(x - n.x) <= n.w / 2 + 4 && Math.abs(y - n.y) <= n.h / 2 + 4) return n
+    if (nodeHitTest(ns[i], x, y)) return ns[i]
   }
   return null
 }
 
-export function hitEdge(eng: CanvasEngine, x: number, y: number): Edge | null {
-  const es = eng.state.currentPage().edges
-  for (let i = es.length - 1; i >= 0; i--) {
-    const pts = edgePoints(es[i], id => eng.state.nodeById(id))
-    for (let j = 1; j < pts.length; j++) {
-      const p1 = pts[j - 1]
-      const p2 = pts[j]
-      const L2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
-      if (L2 === 0) continue
-      let u = ((x - p1.x) * (p2.x - p1.x) + (y - p1.y) * (p2.y - p1.y)) / L2
-      u = DocumentState.clamp(u, 0, 1)
-      const d = Math.hypot(x - (p1.x + u * (p2.x - p1.x)), y - (p1.y + u * (p2.y - p1.y)))
-      if (d < 8) return es[i]
-    }
+/** Nodo o arista bajo el cursor respetando el z-index compartido: si una
+ *  arista fue traída al frente sobre una figura que se mandó al fondo, el
+ *  click debe agarrar la arista aunque la figura también esté "debajo" del
+ *  cursor. Recorre `zOrder` de frente hacia atrás y devuelve el primer hit. */
+export function hitTopmost(eng: CanvasEngine, x: number, y: number): { type: 'node'; obj: Node } | { type: 'edge'; obj: Edge } | null {
+  const items = eng.state.zOrder()
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i]
+    if (item.type === 'node' ? nodeHitTest(item.obj, x, y) : edgeHitTest(eng, item.obj, x, y)) return item
   }
   return null
 }
@@ -67,7 +80,8 @@ export function hitSideArrow(n: Node | null, x: number, y: number): Side | null 
 export function hitCorner(n: Node | null, x: number, y: number): number {
   if (!n) return -1
   const cs = nodeCorners(n)
-  for (let i = 0; i < 4; i++) if (Math.hypot(x - cs[i][0], y - cs[i][1]) < 10) return i
+  const r = handleSize(n) / 2 + 5
+  for (let i = 0; i < 4; i++) if (Math.hypot(x - cs[i][0], y - cs[i][1]) < r) return i
   return -1
 }
 
@@ -232,9 +246,12 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       return
     }
 
-    if (n) {
-      if (ev.shiftKey) { eng.sel.toggleSel('node', n.id); return }
-      if (!eng.sel.selN.has(n.id)) eng.sel.selectOnly('node', n.id)
+    const topHit = hitTopmost(eng, p.x, p.y)
+
+    if (topHit?.type === 'node') {
+      const hn = topHit.obj
+      if (ev.shiftKey) { eng.sel.toggleSel('node', hn.id); return }
+      if (!eng.sel.selN.has(hn.id)) eng.sel.selectOnly('node', hn.id)
       eng.sel.pushUndo()
       eng.drag = { offs: {}, wps: [] }
       for (const id of eng.sel.selN) {
@@ -259,10 +276,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       return
     }
 
-    const e = hitEdge(eng, p.x, p.y)
-    if (e) {
-      if (ev.shiftKey) eng.sel.toggleSel('edge', e.id)
-      else eng.sel.selectOnly('edge', e.id)
+    if (topHit?.type === 'edge') {
+      const he = topHit.obj
+      if (ev.shiftKey) eng.sel.toggleSel('edge', he.id)
+      else eng.sel.selectOnly('edge', he.id)
       return
     }
 
@@ -343,12 +360,11 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     if (eng.panDrag) {
       if (eng.panDrag.isRight && !eng.panDrag.moved) {
         const p = toWorld(eng, ev)
-        const n = hitNode(eng, p.x, p.y)
-        const e = !n ? hitEdge(eng, p.x, p.y) : null
-        if (n) {
-          if (!eng.sel.selN.has(n.id)) eng.sel.selectOnly('node', n.id)
-        } else if (e) {
-          if (!eng.sel.selE.has(e.id)) eng.sel.selectOnly('edge', e.id)
+        const hit = hitTopmost(eng, p.x, p.y)
+        if (hit?.type === 'node') {
+          if (!eng.sel.selN.has(hit.obj.id)) eng.sel.selectOnly('node', hit.obj.id)
+        } else if (hit?.type === 'edge') {
+          if (!eng.sel.selE.has(hit.obj.id)) eng.sel.selectOnly('edge', hit.obj.id)
         } else {
           eng.sel.clearSel()
         }
@@ -440,9 +456,9 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       const wi = hitWaypoint(se, p.x, p.y)
       if (wi >= 0) { eng.sel.pushUndo(); se.waypoints.splice(wi, 1); return }
     }
-    const tgt = hitNode(eng, p.x, p.y) || hitEdge(eng, p.x, p.y)
-    if (!tgt) return
-    eng.beginEdit(tgt)
+    const hit = hitTopmost(eng, p.x, p.y)
+    if (!hit) return
+    eng.beginEdit(hit.obj)
   }
 
   const onKeyDown = (ev: KeyboardEvent): void => {
