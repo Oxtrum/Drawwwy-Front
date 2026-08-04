@@ -138,16 +138,16 @@ input[type=number],
   box-shadow:var(--shadow-sm);
   pointer-events:auto;
 }
-.editor-shell > header .logo{
+.logo{
   display:flex; align-items:center; gap:10px; user-select:none;
 }
-.editor-shell > header .logo .logo-mark{display:block; width:36px; height:36px;}
-.editor-shell > header .logo .wordmark{
+.logo .logo-mark{display:block; width:36px; height:36px;}
+.logo .wordmark{
   font-size:22px; font-weight:700;
   letter-spacing:-.03em; line-height:1;
   display:flex; align-items:center;
 }
-.editor-shell > header .logo .wordmark b{color:var(--brand-hover); font-weight:700;}
+.logo .wordmark b{color:var(--brand-hover); font-weight:700;}
 .board-name{
   font-size:var(--fs-sm); font-weight:450; color:var(--muted);
   padding-left:8px; border-left:1px solid var(--border);
