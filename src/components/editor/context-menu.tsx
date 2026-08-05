@@ -99,6 +99,12 @@ function DeleteIcon() {
 function SelectAllIcon() {
   return <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" strokeDasharray="3,2.5" /></svg>
 }
+function GroupIcon() {
+  return <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="3,2.5" /><rect x="6.5" y="6.5" width="5" height="5" rx="1" /><rect x="12.5" y="12.5" width="5" height="5" rx="1" /></svg>
+}
+function UngroupIcon() {
+  return <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /><path d="M14 4.5h7M17.5 8V4.5" /></svg>
+}
 function ArrangeIcon() {
   return <svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" /></svg>
 }
@@ -140,6 +146,17 @@ export function ContextMenu() {
             <MenuItem icon={<PasteIcon />} label="Pegar" shortcut="Ctrl+V" onClick={paste} />
             <MenuItem icon={<DuplicateIcon />} label="Duplicar" shortcut="Ctrl+D" onClick={() => { engine.sel.dupSel(); engine.notify(); close() }} />
             <MenuItem icon={<DeleteIcon />} label="Eliminar" shortcut="Supr" danger onClick={() => { engine.sel.deleteSel(); engine.notify(); close() }} />
+            <div className="ctx-sep" />
+            <MenuItem
+              icon={<GroupIcon />} label="Agrupar" shortcut="Ctrl+G"
+              disabled={!engine.sel.canGroup()}
+              onClick={() => { engine.sel.groupSel(); close() }}
+            />
+            <MenuItem
+              icon={<UngroupIcon />} label="Desagrupar" shortcut="Ctrl+Shift+G"
+              disabled={!engine.sel.canUngroup()}
+              onClick={() => { engine.sel.ungroupSel(); close() }}
+            />
             <div className="ctx-sep" />
             <div className="ctx-item-wrap" ref={arrangeRef}>
               <button

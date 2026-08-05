@@ -402,6 +402,50 @@ function drawSideArrows(c: Ctx, n: Node, T: ThemeColors): void {
   c.restore()
 }
 
+/** Caja que envuelve a todos los miembros de un grupo, con holgura, en
+ *  coordenadas de mundo. `null` si el grupo ya no tiene miembros en la página. */
+function groupBounds(eng: CanvasEngine, gid: number): Bounds | null {
+  const page = eng.state.currentPage()
+  let mx = Infinity, my = Infinity, Mx = -Infinity, My = -Infinity
+  const addP = (x: number, y: number): void => {
+    if (x < mx) mx = x
+    if (x > Mx) Mx = x
+    if (y < my) my = y
+    if (y > My) My = y
+  }
+  for (const n of page.nodes) {
+    if (n.group !== gid) continue
+    addP(n.x - n.w / 2, n.y - n.h / 2)
+    addP(n.x + n.w / 2, n.y + n.h / 2)
+  }
+  for (const e of page.edges) {
+    if (e.group !== gid) continue
+    edgePoints(e, id => eng.state.nodeById(id)).forEach(p => addP(p.x, p.y))
+  }
+  if (mx === Infinity) return null
+  const pad = 16
+  return { x: mx - pad, y: my - pad, w: Mx - mx + pad * 2, h: My - my + pad * 2 }
+}
+
+/** Contorno de los grupos seleccionados: envuelve los recuadros individuales
+ *  de cada miembro para que se lea que se mueven como una sola pieza. */
+function drawGroupOutlines(c: Ctx, eng: CanvasEngine, T: ThemeColors): void {
+  const groups = eng.sel.selectedGroups()
+  if (!groups.size) return
+  c.save()
+  c.strokeStyle = DocumentState.hexA(T.sel, 0.7)
+  c.lineWidth = 1.5 / eng.viewZoom
+  c.setLineDash([12, 7])
+  for (const gid of groups) {
+    const b = groupBounds(eng, gid)
+    if (!b) continue
+    c.beginPath()
+    roundRect(c, b.x, b.y, b.w, b.h, 10)
+    c.stroke()
+  }
+  c.restore()
+}
+
 export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = {}): void {
   const state = eng.state
   const theme = state.doc.theme
@@ -460,6 +504,8 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
     if (item.type === 'edge') drawEdge(c, item.obj, t, theme, isExport, eng)
     else drawNode(c, item.obj, t, theme, isExport, eng)
   }
+
+  drawGroupOutlines(c, eng, T)
 
   if (eng.placement) {
     const placement = eng.placement

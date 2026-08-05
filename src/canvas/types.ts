@@ -26,6 +26,11 @@ export interface Node {
   /** Orden de apilado (z-index) compartido con las aristas de la misma página:
    *  determina qué se dibuja encima y qué recibe el click cuando se superponen. */
   z: number
+  /** Grupo al que pertenece, o `undefined` si está suelto. Los grupos son
+   *  planos (no anidados) y su id sale del mismo contador `page.nextId` que los
+   *  ids de nodos y aristas, así que es único dentro de la página. Ver
+   *  `SelectionManager.expandGroups`: un grupo se selecciona entero o nada. */
+  group?: number
   shape: Shape
   x: number
   y: number
@@ -64,6 +69,8 @@ export interface Edge {
   id: number
   /** Ver `Node.z`: mismo espacio de apilado, compartido entre nodos y aristas. */
   z: number
+  /** Ver `Node.group`: los grupos mezclan nodos y aristas. */
+  group?: number
   from: number
   to: number
   fromSide: Side | null

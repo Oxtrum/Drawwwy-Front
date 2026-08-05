@@ -434,6 +434,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
           const inside = m.x >= r.x && m.x <= r.x + r.w && m.y >= r.y && m.y <= r.y + r.h
           if (inside || (eng.sel.selN.has(e.from) && eng.sel.selN.has(e.to))) eng.sel.selE.add(e.id)
         }
+        eng.sel.expandGroups()
         eng.notify()
       } else if (!eng.marquee.add) {
         eng.sel.clearSel()
@@ -472,6 +473,12 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     if (ctl && k === 'x') { eng.sel.cutSel(); eng.notify(); return }
     if (ctl && k === 'a') { ev.preventDefault(); eng.sel.selectAll(); return }
     if (ctl && k === 'd') { ev.preventDefault(); eng.sel.dupSel(); eng.notify(); return }
+    if (ctl && k === 'g') {
+      ev.preventDefault()
+      if (ev.shiftKey) eng.sel.ungroupSel()
+      else eng.sel.groupSel()
+      return
+    }
     if (ctl && k === 'v') {
       if (eng.pasteTimer !== null) clearTimeout(eng.pasteTimer)
       eng.pasteTimer = setTimeout(() => {

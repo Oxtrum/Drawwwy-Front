@@ -37,11 +37,23 @@ function worldAnchor(engine: CanvasEngine): { x: number; y: number } | null {
 
 function MultiToolbar({ count }: { count: number }) {
   const engine = useEditorStore(s => s.engine)
+  const canGroup = engine.sel.canGroup()
+  const canUngroup = engine.sel.canUngroup()
   return (
     <div className="sel-toolbar">
       <div className="sel-toolbar-row">
         <span className="sel-count">{count} elementos</span>
         <div className="sel-toolbar-sep" />
+        {canGroup && (
+          <button aria-label="Agrupar" title="Agrupar (Ctrl+G)" onClick={() => engine.sel.groupSel()}>
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="3,2.5" /><rect x="6.5" y="6.5" width="5" height="5" rx="1" /><rect x="12.5" y="12.5" width="5" height="5" rx="1" /></svg>
+          </button>
+        )}
+        {canUngroup && (
+          <button aria-label="Desagrupar" title="Desagrupar (Ctrl+Shift+G)" onClick={() => engine.sel.ungroupSel()}>
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /><path d="M14 4.5h7M17.5 8V4.5" /></svg>
+          </button>
+        )}
         <button aria-label="Duplicar" title="Duplicar (Ctrl+D)" onClick={() => engine.sel.dupSel()}>
           <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></svg>
         </button>

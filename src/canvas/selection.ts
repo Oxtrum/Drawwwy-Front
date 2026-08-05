@@ -102,14 +102,111 @@ export class SelectionManager {
     this.selN.clear()
     this.selE.clear()
     ;(type === 'node' ? this.selN : this.selE).add(id)
+    this.expandGroups()
     this.notify()
   }
 
   toggleSel(type: 'node' | 'edge', id: number): void {
     const s = type === 'node' ? this.selN : this.selE
-    if (s.has(id)) s.delete(id)
+    const obj = type === 'node' ? this.state.nodeById(id) : this.state.edgeById(id)
+    // Un miembro de grupo arrastra a sus compañeros en ambos sentidos: shift+click
+    // sobre él suma o resta el grupo completo, nunca lo parte.
+    if (obj?.group !== undefined) {
+      const members = this.groupMembers(obj.group)
+      if (s.has(id)) {
+        members.nodes.forEach(n => this.selN.delete(n.id))
+        members.edges.forEach(e => this.selE.delete(e.id))
+      } else {
+        members.nodes.forEach(n => this.selN.add(n.id))
+        members.edges.forEach(e => this.selE.add(e.id))
+      }
+    } else if (s.has(id)) s.delete(id)
     else s.add(id)
     this.notify()
+  }
+
+  private groupMembers(gid: number): { nodes: Node[]; edges: Edge[] } {
+    const page = this.state.currentPage()
+    return {
+      nodes: page.nodes.filter(n => n.group === gid),
+      edges: page.edges.filter(e => e.group === gid),
+    }
+  }
+
+  /** Ids de grupo tocados por la selección actual. */
+  selectedGroups(): Set<number> {
+    const gs = new Set<number>()
+    const page = this.state.currentPage()
+    for (const n of page.nodes) if (n.group !== undefined && this.selN.has(n.id)) gs.add(n.group)
+    for (const e of page.edges) if (e.group !== undefined && this.selE.has(e.id)) gs.add(e.group)
+    return gs
+  }
+
+  /** Completa la selección con el resto de los miembros de cada grupo tocado.
+   *  Se llama después de cualquier selección hecha por el usuario (click,
+   *  shift+click, marquee) para sostener la invariante "un grupo se selecciona
+   *  entero o no se selecciona". Al ser planos los grupos, una sola pasada basta. */
+  expandGroups(): void {
+    const gs = this.selectedGroups()
+    if (!gs.size) return
+    const page = this.state.currentPage()
+    for (const n of page.nodes) if (n.group !== undefined && gs.has(n.group)) this.selN.add(n.id)
+    for (const e of page.edges) if (e.group !== undefined && gs.has(e.group)) this.selE.add(e.id)
+  }
+
+  /** Agrupar aporta algo si hay 2+ elementos y no son ya exactamente un grupo. */
+  canGroup(): boolean {
+    const page = this.state.currentPage()
+    const nodes = page.nodes.filter(n => this.selN.has(n.id))
+    const edges = page.edges.filter(e => this.selE.has(e.id))
+    if (nodes.length + edges.length < 2) return false
+    const first = nodes[0]?.group ?? edges[0]?.group
+    if (first === undefined) return true
+    const members = this.groupMembers(first)
+    return !(nodes.every(n => n.group === first) && edges.every(e => e.group === first)
+      && members.nodes.length === nodes.length && members.edges.length === edges.length)
+  }
+
+  groupSel(): void {
+    if (!this.canGroup()) return
+    this.pushUndo()
+    const page = this.state.currentPage()
+    const gid = page.nextId++
+    // Una arista con ambos extremos dentro del grupo entra aunque no estuviera
+    // seleccionada: ya se movía con ellos, y así también se borra y copia con ellos.
+    for (const e of page.edges) if (this.selN.has(e.from) && this.selN.has(e.to)) this.selE.add(e.id)
+    for (const n of page.nodes) if (this.selN.has(n.id)) n.group = gid
+    for (const e of page.edges) if (this.selE.has(e.id)) e.group = gid
+    this.state.scheduleAutosave()
+    this.notify()
+  }
+
+  canUngroup(): boolean {
+    return this.selectedGroups().size > 0
+  }
+
+  ungroupSel(): void {
+    const gs = this.selectedGroups()
+    if (!gs.size) return
+    this.pushUndo()
+    const page = this.state.currentPage()
+    for (const n of page.nodes) if (n.group !== undefined && gs.has(n.group)) n.group = undefined
+    for (const e of page.edges) if (e.group !== undefined && gs.has(e.group)) e.group = undefined
+    this.state.scheduleAutosave()
+    this.notify()
+  }
+
+  /** Disuelve los grupos que quedaron con menos de dos miembros: un grupo de
+   *  uno no agrupa nada y dejaría al sobreviviente con un contorno fantasma. */
+  private pruneGroups(): void {
+    const page = this.state.currentPage()
+    const count = new Map<number, number>()
+    const bump = (g?: number): void => { if (g !== undefined) count.set(g, (count.get(g) ?? 0) + 1) }
+    page.nodes.forEach(n => bump(n.group))
+    page.edges.forEach(e => bump(e.group))
+    const dead = (g?: number): boolean => g !== undefined && (count.get(g) ?? 0) < 2
+    page.nodes.forEach(n => { if (dead(n.group)) n.group = undefined })
+    page.edges.forEach(e => { if (dead(e.group)) e.group = undefined })
   }
 
   singleSel(): SingleSelection | null {
@@ -158,11 +255,20 @@ export class SelectionManager {
     this.pushUndo()
     const page = this.state.currentPage()
     const map: Record<number, number> = {}
+    // Los grupos del clip se re-numeran: la copia es un grupo nuevo e
+    // independiente, y el id original podría chocar con otro de esta página.
+    const gmap: Record<number, number> = {}
+    const regroup = (g?: number): number | undefined => {
+      if (g === undefined) return undefined
+      if (gmap[g] === undefined) gmap[g] = page.nextId++
+      return gmap[g]
+    }
     this.selN.clear()
     this.selE.clear()
     clip.nodes.forEach(n => {
       const c = DocumentState.deep(n)
       map[n.id] = c.id = page.nextId++
+      c.group = regroup(n.group)
       c.z = this.state.nextZ(page)
       c.x += GRID
       c.y += GRID
@@ -173,6 +279,7 @@ export class SelectionManager {
     clip.edges.forEach(e => {
       const c = DocumentState.deep(e)
       c.id = page.nextId++
+      c.group = regroup(e.group)
       c.z = this.state.nextZ(page)
       c.from = map[e.from] ?? e.from
       c.to = map[e.to] ?? e.to
@@ -219,6 +326,7 @@ export class SelectionManager {
     const page = this.state.currentPage()
     page.edges = page.edges.filter(e => !this.selE.has(e.id) && !this.selN.has(e.from) && !this.selN.has(e.to))
     page.nodes = page.nodes.filter(n => !this.selN.has(n.id))
+    this.pruneGroups()
     this.clearSel()
   }
 
