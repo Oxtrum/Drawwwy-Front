@@ -5,6 +5,7 @@ import App from './App.tsx'
 import './lib/stores/theme-store'
 import './styles/index.css'
 import './styles/dashboard.css'
+import './styles/auth.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

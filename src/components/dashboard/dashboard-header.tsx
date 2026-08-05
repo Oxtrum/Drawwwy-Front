@@ -1,94 +1,58 @@
-import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useClickOutside } from '../../lib/hooks/use-click-outside'
-import { useAuthStore } from '../../lib/stores/auth-store'
 import { useProjectStore } from '../../lib/stores/project-store'
+import { AccountMenu } from '../ui/account-menu'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  /** El filtro lo posee la página, que es quien pinta la lista filtrada. */
+  query: string
+  onQueryChange: (value: string) => void
+}
+
+export function DashboardHeader({ query, onQueryChange }: DashboardHeaderProps) {
   const navigate = useNavigate()
   const createProject = useProjectStore(s => s.createProject)
-  const authStatus = useAuthStore(s => s.status)
-  const user = useAuthStore(s => s.user)
-  const logout = useAuthStore(s => s.logout)
-  const [accountOpen, setAccountOpen] = useState(false)
-  const accountRef = useRef<HTMLDivElement>(null)
-
-  useClickOutside(accountRef, () => setAccountOpen(false), accountOpen)
 
   const handleCreate = async (): Promise<void> => {
     const project = await createProject()
     navigate(`/editor/${project.id}`)
   }
 
-  const handleLogin = (): void => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
-    if (!clientId) {
-      window.alert('Falta configurar VITE_GOOGLE_CLIENT_ID para iniciar sesion con Google.')
-      return
-    }
-    const redirectUri = `${window.location.origin}/auth-callback`
-    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
-    url.searchParams.set('client_id', clientId)
-    url.searchParams.set('redirect_uri', redirectUri)
-    url.searchParams.set('response_type', 'code')
-    url.searchParams.set('scope', 'openid email profile')
-    url.searchParams.set('access_type', 'offline')
-    url.searchParams.set('prompt', 'select_account')
-    window.location.href = url.toString()
-  }
-
-  const initials = (user?.name || user?.email || '?')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase())
-    .join('')
-
   return (
     <header className="dashboard-header">
       <Logo />
-      <div className="spacer" />
-      {authStatus === 'authenticated' ? (
-        <div className="account-menu-wrap" ref={accountRef}>
-          <button
-            className="account-btn"
-            title={user?.email || 'Sesion activa'}
-            aria-label="Cuenta"
-            aria-expanded={accountOpen}
-            onClick={() => setAccountOpen(open => !open)}
-          >
-            {user?.avatar_url
-              ? <img src={user.avatar_url} alt="" />
-              : <span>{initials}</span>
-            }
+
+      <div className="dash-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3.6-3.6" />
+        </svg>
+        <input
+          type="search"
+          value={query}
+          placeholder="Buscar en tus tableros"
+          aria-label="Buscar en tus tableros"
+          onChange={ev => onQueryChange(ev.target.value)}
+          onKeyDown={ev => { if (ev.key === 'Escape') onQueryChange('') }}
+        />
+        {query && (
+          <button className="dash-search-clear" aria-label="Limpiar busqueda" onClick={() => onQueryChange('')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
-          {accountOpen && (
-            <div className="account-menu">
-              <div className="account-meta">
-                <strong>{user?.name || 'Sesion activa'}</strong>
-                {user?.email && <span>{user.email}</span>}
-              </div>
-              <button
-                onClick={() => {
-                  setAccountOpen(false)
-                  logout()
-                }}
-              >
-                Salir
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <button onClick={handleLogin}>
-          Iniciar sesion
-        </button>
-      )}
+        )}
+      </div>
+
+      <div className="spacer" />
+      <AccountMenu />
       <ThemeToggle />
-      <button className="primary" onClick={() => void handleCreate()}>
-        + Crear board
+      <button className="primary create-btn" onClick={() => void handleCreate()}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        <span>Crear tablero</span>
       </button>
     </header>
   )

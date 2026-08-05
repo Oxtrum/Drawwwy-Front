@@ -138,6 +138,15 @@ input[type=number],
   box-shadow:var(--shadow-sm);
   pointer-events:auto;
 }
+/* La pill de cuenta no renderiza nada mientras /auth/me está en vuelo; sin
+   esto quedaría una burbuja vacía flotando en la esquina. */
+.header-pill:empty{display:none;}
+/* El avatar es un círculo tenue y necesita la pill como fondo; el botón de
+   sesión ya trae el suyo, y envuelto quedaba un anillo gris alrededor del
+   azul. La pill se disuelve cuando lo que contiene es el botón. */
+.header-pill:has(> .login-btn){
+  background:none; border:none; box-shadow:none; padding:0;
+}
 .logo{
   display:flex; align-items:center; gap:10px; user-select:none;
 }
@@ -170,6 +179,64 @@ input[type=number],
 .logo-link{color:inherit; text-decoration:none; display:flex;}
 .spacer{flex:1;}
 
+/* ---------------- control de sesión (dashboard + editor) ---------------- */
+.account-menu-wrap{position:relative; flex-shrink:0;}
+.account-btn{
+  width:34px; height:34px; padding:0; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden; background:var(--surface-2); border:1px solid var(--border);
+}
+.account-btn:hover, .account-btn[aria-expanded="true"]{
+  border-color:var(--border-strong); background:var(--surface-hover);
+}
+.account-btn img{width:100%; height:100%; object-fit:cover; display:block;}
+.account-btn span{
+  color:var(--text); font-size:var(--fs-xs); font-weight:700;
+  letter-spacing:0;
+}
+/* El botón de sesión no define color propio: lleva la clase `primary` y hereda
+   el mismo azul plano que «Crear tablero», así que los dos CTA de la app se
+   ven idénticos y siguen igualados si cambia el token de marca. Aquí solo va
+   la caja (alto, icono, separación). */
+.login-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  height:36px; padding:0 15px; border-radius:var(--r-md);
+}
+.login-btn svg{
+  width:15px; height:15px; flex-shrink:0;
+  stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round;
+}
+
+/* Variante para las pills flotantes del editor, donde el resto mide 32px. */
+.account-menu-wrap.compact .account-btn{width:30px; height:30px;}
+.login-btn.compact{height:32px; padding:0 12px;}
+
+.account-menu{
+  position:absolute; right:0; top:calc(100% + 8px); z-index:40;
+  width:240px; padding:6px;
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--r-lg); box-shadow:var(--shadow-lg);
+}
+.account-meta{
+  display:flex; flex-direction:column; gap:2px;
+  padding:9px 10px 10px; border-bottom:1px solid var(--border);
+  margin-bottom:4px;
+}
+.account-meta strong{
+  color:var(--text); font-size:var(--fs-sm); font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.account-meta span{
+  color:var(--muted); font-size:var(--fs-xs);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.account-menu button{
+  width:100%; justify-content:flex-start; text-align:left;
+  background:transparent; border-color:transparent;
+  padding:8px 10px;
+}
+.account-menu button:hover{background:var(--surface-hover);}
+
 /* ---------------- controles base ---------------- */
 button, select{
   font-family:inherit; font-size:var(--fs-sm); font-weight:500;
@@ -196,6 +263,14 @@ button.primary:active{background:var(--brand-active); border-color:var(--brand-a
 button.toggled{
   background:var(--brand-soft); border-color:var(--brand-edge); color:var(--brand-hover);
 }
+/* Deshabilitado: el control sigue leyéndose (y conserva su `title` como
+   explicación de por qué no está disponible), pero pierde estado de hover. */
+button:disabled{opacity:.42; cursor:not-allowed;}
+button:disabled:hover{background:var(--surface-2); border-color:var(--border);}
+button.primary:disabled:hover{background:var(--brand); border-color:var(--brand);}
+.icon-btn:disabled:hover{background:transparent;}
+.icon-btn.primary:disabled:hover{background:var(--brand);}
+button:disabled:active{transform:none;}
 button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible{
   outline:2px solid var(--brand-hover); outline-offset:1px;
 }
@@ -625,6 +700,19 @@ kbd{
 }
 .ctx-submenu-right{left:calc(100% + 6px);}
 .ctx-submenu-left{right:calc(100% + 6px);}
+
+/* ---------------- menú de cabecera (3 puntos) ---------------- */
+/* Botón ⋮ a la derecha del control de velocidad; el desplegable cuelga
+   hacia abajo alineado a la derecha, reutilizando .ctx-item para las filas. */
+.hmenu{position:relative; display:flex; flex-shrink:0;}
+.hmenu-menu{
+  position:absolute; right:0; top:calc(100% + 10px); z-index:210;
+  width:236px; padding:5px;
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--r-lg); box-shadow:var(--shadow-lg);
+  animation:flyoutIn .12s var(--ease);
+}
+@media (prefers-reduced-motion: reduce){ .hmenu-menu{animation:none;} }
 
 /* ============ Responsive editor ============ */
 @media (max-width: 700px) {

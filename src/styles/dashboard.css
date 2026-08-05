@@ -7,59 +7,163 @@
 /* Clase propia, no el selector `header` genérico: este archivo carga después
    de index.css y pisaría también el header del editor por orden de cascada. */
 .dashboard-header{
-  display:flex; align-items:center; gap:8px;
-  padding:0 24px; height:60px; flex-shrink:0;
+  position:sticky; top:0; z-index:30;
+  display:flex; align-items:center; gap:10px;
+  padding:0 24px; height:64px; flex-shrink:0;
   background:var(--surface); border-bottom:1px solid var(--border);
 }
-.account-menu-wrap{position:relative; flex-shrink:0;}
-.account-btn{
-  width:34px; height:34px; padding:0; border-radius:50%;
+/* El control de cuenta (.account-*) y .login-btn viven en index.css: los
+   comparten este header y las pills del editor. */
+
+.dash-search{
+  position:relative; display:flex; align-items:center;
+  flex:1; max-width:400px; margin-left:14px;
+}
+.dash-search > svg{
+  position:absolute; left:11px; width:16px; height:16px;
+  color:var(--muted); pointer-events:none;
+}
+.dash-search input{
+  width:100%; height:36px;
+  font:inherit; font-size:var(--fs-sm); color:var(--text);
+  background:var(--bg); border:1px solid var(--border); border-radius:999px;
+  padding:0 34px 0 34px;
+  transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.dash-search input::placeholder{color:var(--muted);}
+.dash-search input:focus{
+  outline:none; border-color:var(--brand-edge); background:var(--surface-2);
+}
+/* El aspa nativa de type=search no respeta el tema en todos los navegadores. */
+.dash-search input::-webkit-search-cancel-button{appearance:none;}
+.dash-search-clear{
+  position:absolute; right:5px;
+  width:24px; height:24px; padding:0; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  overflow:hidden; background:var(--surface-2); border:1px solid var(--border);
+  background:transparent; border:none; color:var(--muted);
 }
-.account-btn:hover, .account-btn[aria-expanded="true"]{
-  border-color:var(--border-strong); background:var(--surface-hover);
+.dash-search-clear:hover{background:var(--surface-hover); color:var(--text);}
+.dash-search-clear svg{width:13px; height:13px;}
+
+.create-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  height:36px; padding:0 15px; border-radius:var(--r-md);
 }
-.account-btn img{width:100%; height:100%; object-fit:cover; display:block;}
-.account-btn span{
-  color:var(--text); font-size:var(--fs-xs); font-weight:700;
-  letter-spacing:0;
-}
-.account-menu{
-  position:absolute; right:0; top:calc(100% + 8px); z-index:40;
-  width:240px; padding:6px;
-  background:var(--surface-2); border:1px solid var(--border);
-  border-radius:var(--r-lg); box-shadow:var(--shadow-lg);
-}
-.account-meta{
-  display:flex; flex-direction:column; gap:2px;
-  padding:9px 10px 10px; border-bottom:1px solid var(--border);
-  margin-bottom:4px;
-}
-.account-meta strong{
-  color:var(--text); font-size:var(--fs-sm); font-weight:600;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.account-meta span{
-  color:var(--muted); font-size:var(--fs-xs);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.account-menu button{
-  width:100%; justify-content:flex-start; text-align:left;
-  background:transparent; border-color:transparent;
-  padding:8px 10px;
-}
-.account-menu button:hover{background:var(--surface-hover);}
+.create-btn svg{width:15px; height:15px;}
 
 .dashboard{
   flex:1; width:100%;
   max-width:1360px; margin:0 auto;
-  padding:32px 32px 64px;
+  padding:28px 32px 72px;
 }
 
-.dashboard-grid{
-  display:grid; grid-template-columns:repeat(4, 1fr); gap:20px;
+/* ---------------- hero ---------------- */
+.dash-hero{
+  position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:space-between; gap:24px;
+  padding:30px 32px; margin-bottom:22px;
+  border:1px solid var(--border); border-radius:var(--r-xl);
+  background:
+    radial-gradient(120% 180% at 0% 0%, var(--brand-soft) 0%, transparent 62%),
+    var(--surface);
 }
+/* Cuadrícula del lienzo, para que el panel se lea como parte del producto. */
+.dash-hero::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size:26px 26px;
+  mask-image:linear-gradient(105deg, transparent 42%, #000 100%);
+  opacity:.7;
+}
+.dash-hero-text{position:relative; min-width:0;}
+.dash-hero h1{
+  font-size:clamp(22px, 2.3vw, 28px); font-weight:600;
+  letter-spacing:-.03em; color:var(--text);
+}
+.dash-hero p{
+  margin-top:7px; max-width:52ch;
+  color:var(--muted); font-size:var(--fs-md); line-height:1.6;
+}
+.dash-hero-cta{
+  position:relative; flex-shrink:0;
+  display:inline-flex; align-items:center; gap:7px;
+  height:40px; padding:0 18px; border-radius:var(--r-md);
+  font-size:var(--fs-md);
+}
+.dash-hero-cta svg{width:16px; height:16px;}
+
+/* ---------------- aviso de invitado ---------------- */
+.dash-notice{
+  display:flex; align-items:center; gap:14px;
+  padding:14px 16px; margin-bottom:26px;
+  border:1px solid var(--brand-edge); border-radius:var(--r-lg);
+  background:var(--brand-soft);
+}
+.dash-notice > svg{width:22px; height:22px; flex-shrink:0; color:var(--brand-hover);}
+.dash-notice p{flex:1; min-width:0; font-size:var(--fs-sm); line-height:1.55; color:var(--muted);}
+.dash-notice strong{color:var(--text); font-weight:600;}
+.dash-notice .login-btn{flex-shrink:0;}
+
+/* ---------------- cabecera de sección ---------------- */
+.dash-section-head{
+  display:flex; align-items:baseline; gap:10px;
+  margin-bottom:14px;
+}
+.dash-section-head h2{
+  font-size:var(--fs-lg); font-weight:600; letter-spacing:-.02em; color:var(--text);
+}
+.dash-count{
+  color:var(--muted); font-size:var(--fs-xs);
+  padding:2px 8px; border-radius:999px;
+  background:var(--surface); border:1px solid var(--border);
+}
+.dash-noresults{
+  display:flex; align-items:center; gap:10px;
+  padding:26px 0; color:var(--muted); font-size:var(--fs-sm);
+}
+
+/* auto-fill: con pocos tableros las tarjetas no se estiran hasta ocupar un
+   cuarto de pantalla cada una, y en monitores anchos caben más de cuatro. */
+.dashboard-grid{
+  display:grid; gap:20px;
+  grid-template-columns:repeat(auto-fill, minmax(248px, 1fr));
+}
+
+/* ---------------- baldosa de creación ---------------- */
+.create-tile{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; min-height:230px; padding:20px; text-align:center;
+  background:transparent; border:1px dashed var(--border-strong); border-radius:var(--r-lg);
+  color:var(--muted);
+  transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.create-tile:hover{
+  border-color:var(--brand); border-style:solid;
+  background:var(--brand-soft); color:var(--text);
+}
+.create-tile-icon{
+  display:flex; align-items:center; justify-content:center;
+  width:40px; height:40px; margin-bottom:4px; border-radius:50%;
+  background:var(--brand-soft); color:var(--brand-hover);
+}
+.create-tile:hover .create-tile-icon{background:var(--brand); color:var(--on-brand);}
+.create-tile-icon svg{width:20px; height:20px;}
+.create-tile strong{color:var(--text); font-size:var(--fs-md); font-weight:600;}
+.create-tile span{font-size:var(--fs-xs); line-height:1.5;}
+
+/* ---------------- esqueleto de carga ---------------- */
+.project-skeleton{
+  min-height:230px; border-radius:var(--r-lg);
+  border:1px solid var(--border); background:var(--surface);
+  animation:skeletonPulse 1.4s var(--ease) infinite;
+}
+.project-skeleton:nth-child(2){animation-delay:.12s;}
+.project-skeleton:nth-child(3){animation-delay:.24s;}
+.project-skeleton:nth-child(4){animation-delay:.36s;}
+@keyframes skeletonPulse{50%{opacity:.5;}}
+@media (prefers-reduced-motion: reduce){ .project-skeleton{animation:none;} }
 
 .project-card{
   background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
@@ -70,9 +174,11 @@
 @media (prefers-reduced-motion: reduce){ .project-card{transition:none;} .project-card:hover{transform:none;} }
 
 .project-card .preview{
+  position:relative;
   aspect-ratio:4 / 3;
   overflow:hidden;
   border-radius:var(--r-lg) var(--r-lg) 0 0;
+  border-bottom:1px solid var(--border);
   background-color:var(--bg);
   background-image:
     linear-gradient(var(--border) 1px, transparent 1px),
@@ -81,17 +187,40 @@
   display:flex; align-items:center; justify-content:center;
   padding:20px;
 }
-.project-card .preview span{
-  font-size:15px; font-weight:600; color:var(--muted); text-align:center;
-  letter-spacing:-.01em;
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+.board-placeholder{
+  width:100%; max-width:200px; height:auto;
+  fill:none; stroke:var(--border-strong); stroke-width:2;
+  stroke-linecap:round; stroke-linejoin:round;
+  transition:stroke var(--dur) var(--ease);
 }
+.project-card:hover .board-placeholder{stroke:var(--brand-hover);}
 .project-card .preview img{
   width:100%; height:100%; object-fit:contain; display:block;
   border-radius:var(--r-sm);
 }
+/* Afordancia de apertura: la tarjeta entera es clickable, pero sin esto no
+   hay nada que lo anuncie salvo el cursor. */
+.open-hint{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:var(--fs-sm); font-weight:600; color:var(--on-brand);
+  background:rgba(23,99,208,.72);
+  opacity:0; transition:opacity var(--dur) var(--ease);
+}
+.project-card:hover .open-hint{opacity:1;}
+@media (hover: none){ .open-hint{display:none;} }
+@media (prefers-reduced-motion: reduce){ .open-hint, .board-placeholder{transition:none;} }
 
-.project-card .meta{padding:12px 8px 14px 14px; display:flex; flex-direction:column; gap:3px;}
+.project-card .meta{padding:11px 8px 13px 14px; display:flex; flex-direction:column; gap:5px;}
+.meta-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding-right:6px;}
+.badge{
+  display:inline-flex; align-items:center; gap:4px; flex-shrink:0;
+  padding:2px 7px; border-radius:999px;
+  font-size:var(--fs-xs); font-weight:500; color:var(--muted);
+  background:var(--surface-2); border:1px solid var(--border);
+}
+.badge svg{width:11px; height:11px;}
+.badge.cloud{color:var(--brand-hover); background:var(--brand-soft); border-color:var(--brand-edge);}
 
 .name-row{display:flex; align-items:center; justify-content:space-between; gap:6px; min-height:30px;}
 .project-card .name{
@@ -153,13 +282,20 @@ button.danger-solid:hover{filter:brightness(1.08);}
 .dashboard-empty p{max-width:360px; font-size:var(--fs-sm); line-height:1.55;}
 .dashboard-empty button{margin-top:8px;}
 
-@media (max-width: 700px) {
-  .dashboard-header{padding:0 16px; height:52px;}
-  .dashboard{padding:20px 16px 48px;}
-  .dashboard-grid{grid-template-columns:1fr; gap:14px;}
-  .menu-btn{opacity:1;}
+/* `auto-fill` ya resuelve el número de columnas en cualquier ancho, así que
+   los breakpoints solo ajustan densidad y el reparto del header. */
+@media (max-width: 900px) {
+  .create-btn span{display:none;}
+  .dash-search{max-width:none;}
 }
 
-@media (min-width: 701px) and (max-width: 1024px) {
-  .dashboard-grid{grid-template-columns:repeat(2, 1fr);}
+@media (max-width: 640px) {
+  .dashboard-header{padding:0 14px; height:56px; gap:6px;}
+  .dash-search{display:none;}
+  .dashboard{padding:18px 14px 48px;}
+  .dashboard-grid{gap:14px; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));}
+  .dash-hero{flex-direction:column; align-items:flex-start; gap:18px; padding:22px;}
+  .dash-hero-cta{width:100%; justify-content:center;}
+  .dash-notice{flex-direction:column; align-items:flex-start;}
+  .menu-btn{opacity:1;}
 }

@@ -119,7 +119,21 @@ export class CanvasEngine {
     return this.playing ? (performance.now() - this.t0) / 1000 : this.pausedAt
   }
 
+  /**
+   * ¿Hay algo que animar en la página actual? Aristas con flujo o nodos con
+   * pulso. Gobierna el botón de play/pausa: sin nada animado, `playing` solo
+   * congelaría un dibujo estático. Incluye el pulso además del flujo porque
+   * `playing` para el reloj de toda la escena, no solo el de las flechas; si
+   * mirara únicamente `animated`, un nodo con pulso quedaría animándose sin
+   * forma de pausarlo.
+   */
+  hasAnimation(): boolean {
+    const page = this.state.currentPage()
+    return page.edges.some(e => e.animated) || page.nodes.some(n => n.pulse)
+  }
+
   togglePlay(): void {
+    if (!this.hasAnimation()) return
     if (this.playing) {
       this.pausedAt = (performance.now() - this.t0) / 1000
       this.playing = false

@@ -1,28 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { exportCurrentPageAsJpg, exportDocumentAsPdf, renderCurrentPageThumbnail } from '../../canvas/export'
-import { createDrwyFile, downloadBlob, DRWY_MIME, parseDrwyText, sanitizeFilename } from '../../lib/drwy/format'
-import { useAuthStore } from '../../lib/stores/auth-store'
+import { renderCurrentPageThumbnail } from '../../canvas/export'
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { useProjectStore } from '../../lib/stores/project-store'
+import { AccountMenu } from '../ui/account-menu'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
+import { HeaderMenu } from './header-menu'
 
 export function EditorHeader() {
   const navigate = useNavigate()
   const engine = useEditorStore(s => s.engine)
   useEditorStore(s => s.version)
   const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
-  const authStatus = useAuthStore(s => s.status)
   const saveStatus = useProjectStore(s => s.saveStatus)
   const activeProject = useProjectStore(s => s.activeProject)
   const saveActiveProject = useProjectStore(s => s.saveActiveProject)
-  const saveDocumentAsRemote = useProjectStore(s => s.saveDocumentAsRemote)
   const settings = engine.state.settings
+  // Se recalcula en cada notify() del engine (la suscripción a `version` de
+  // arriba), que es justo cuando se activa el flujo de una arista o el pulso
+  // de un nodo.
+  const hasAnimation = engine.hasAnimation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(engine.state.doc.name)
   const inputRef = useRef<HTMLInputElement>(null)
-  const importRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!editing) setDraft(engine.state.doc.name)
@@ -46,62 +47,6 @@ export function EditorHeader() {
   const cancelRename = (): void => {
     setDraft(engine.state.doc.name)
     setEditing(false)
-  }
-
-  const handleExportDrwy = (): void => {
-    const title = engine.state.doc.name || 'Diagrama'
-    const file = createDrwyFile(engine.serialize(), title)
-    const blob = new Blob([JSON.stringify(file, null, 2)], { type: DRWY_MIME })
-    downloadBlob(blob, `${sanitizeFilename(file.title || 'diagrama')}.drwy`)
-  }
-
-  const handleImport = async (file: File): Promise<void> => {
-    try {
-      const hasContent = engine.state.currentPage().nodes.length > 0 || engine.state.currentPage().edges.length > 0 || engine.state.doc.pages.length > 1
-      if (hasContent && !window.confirm('La importacion reemplazara el diagrama actual. Continuar?')) return
-      const parsed = parseDrwyText(await file.text())
-      engine.applyProjectData(parsed.projectData)
-      if (parsed.title) {
-        engine.state.setProjectName(parsed.title)
-        engine.notify()
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message.replace(/^DRWY_INVALID:\s*/, '') : 'No se pudo importar el archivo.'
-      window.alert(`No se pudo importar el archivo: ${message}`)
-    }
-  }
-
-  const handleExportJpg = async (): Promise<void> => {
-    try {
-      const blob = await exportCurrentPageAsJpg(engine, { scale: 2 })
-      const title = engine.state.doc.name || 'Diagrama'
-      const page = engine.state.currentPage().name || 'pagina'
-      downloadBlob(blob, `${sanitizeFilename(`${title}-${page}`)}.jpg`)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo generar el JPG.'
-      window.alert(message)
-    }
-  }
-
-  const handleExportPdf = async (): Promise<void> => {
-    try {
-      const blob = await exportDocumentAsPdf(engine, { scale: 2 })
-      downloadBlob(blob, `${sanitizeFilename(engine.state.doc.name || 'Diagrama')}.pdf`)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo generar el PDF.'
-      window.alert(message)
-    }
-  }
-
-  const handleCloudSave = async (): Promise<void> => {
-    if (authStatus !== 'authenticated') {
-      window.alert('Para guardar en la nube debes iniciar sesion. El diagrama local se mantiene intacto.')
-      return
-    }
-    if (activeProject?.source === 'remote') return
-    const thumbnail = await renderCurrentPageThumbnail(engine).catch(() => null)
-    const project = await saveDocumentAsRemote(engine.serialize(), engine.state.doc.name, thumbnail)
-    if (project) navigate(`/editor/${project.id}`, { replace: true })
   }
 
   const handleBackToDashboard = async (): Promise<void> => {
@@ -157,32 +102,6 @@ export function EditorHeader() {
       <div className="spacer" />
 
       <div className="header-pill">
-        <input
-          ref={importRef}
-          type="file"
-          accept=".drwy,application/json"
-          hidden
-          onChange={event => {
-            const file = event.target.files?.[0]
-            event.target.value = ''
-            if (file) void handleImport(file)
-          }}
-        />
-        <button className="icon-btn" title="Importar archivo .drwy" aria-label="Importar archivo .drwy" onClick={() => importRef.current?.click()}>
-          <svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
-        </button>
-        <button className="icon-btn" title="Exportar archivo .drwy" aria-label="Exportar archivo .drwy" onClick={handleExportDrwy}>
-          <svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14" /></svg>
-        </button>
-        <button className="icon-btn" title="Exportar página como JPG" aria-label="Exportar página como JPG" onClick={() => void handleExportJpg()}>
-          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8" cy="9" r="1.5" /><path d="m4 17 5-5 4 4 2-2 5 5" /></svg>
-        </button>
-        <button className="icon-btn" title="Exportar documento como PDF" aria-label="Exportar documento como PDF" onClick={() => void handleExportPdf()}>
-          <svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z" /><path d="M14 2v5h5M8 15h8M8 18h5M8 12h8" /></svg>
-        </button>
-        <button className={activeProject?.source === 'remote' ? 'toggled icon-btn' : 'icon-btn'} title="Guardar en la nube" aria-label="Guardar en la nube" onClick={() => void handleCloudSave()}>
-          <svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.1 8.5 4.5 4.5 0 0 0 7 18z" /><path d="M12 12v7M9 16l3 3 3-3" /></svg>
-        </button>
         <span className="save-status">{saveText}</span>
         <div className="pill-divider" />
         <ThemeToggle />
@@ -209,12 +128,28 @@ export function EditorHeader() {
           <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
         </button>
         <div className="pill-divider" />
-        <button className="icon-btn primary" title="Reproducir / pausar (Espacio)" onClick={() => engine.togglePlay()}>
-          {engine.playing
+        <HeaderMenu engine={engine} />
+        <div className="pill-divider" />
+        <button
+          className="icon-btn primary"
+          disabled={!hasAnimation}
+          title={hasAnimation
+            ? 'Reproducir / pausar (Espacio)'
+            : 'Activa el flujo en alguna flecha para reproducir la animación'}
+          onClick={() => engine.togglePlay()}
+        >
+          {/* Sin nada que animar el reloj sigue corriendo (`playing` arranca en
+              true), pero un icono de pausa deshabilitado no querría decir nada:
+              mostramos siempre play. */}
+          {engine.playing && hasAnimation
             ? <svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
             : <svg viewBox="0 0 24 24"><path d="M5 3l16 9-16 9z" /></svg>
           }
         </button>
+      </div>
+
+      <div className="header-pill">
+        <AccountMenu compact />
       </div>
     </header>
   )

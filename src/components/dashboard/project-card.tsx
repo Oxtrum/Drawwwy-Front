@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Project } from '../../lib/stores/project-store'
 import { useClickOutside } from '../../lib/hooks/use-click-outside'
 import { relativeTime } from '../../lib/utils'
+import { BoardPlaceholder } from './board-placeholder'
 
 interface ProjectCardProps {
   project: Project
@@ -30,8 +31,9 @@ export function ProjectCard({ project, onRequestRename, onRequestDelete }: Proje
       <div className="preview">
         {project.thumbnailUrl
           ? <img src={project.thumbnailUrl} alt="" />
-          : <span>{project.name}</span>
+          : <BoardPlaceholder seed={project.id} />
         }
+        <span className="open-hint">Abrir</span>
       </div>
       <div className="meta">
         <div className="name-row">
@@ -66,8 +68,27 @@ export function ProjectCard({ project, onRequestRename, onRequestDelete }: Proje
             )}
           </div>
         </div>
-        <span className="date">Editado {relativeTime(project.updatedAt)}</span>
-        <span className="date">{project.source === 'remote' ? 'Nube' : 'Local'}</span>
+        <div className="meta-row">
+          <span className="date">Editado {relativeTime(project.updatedAt)}</span>
+          <span className={project.source === 'remote' ? 'badge cloud' : 'badge'}>
+            {project.source === 'remote' ? (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.5 19a4.5 4.5 0 0 0 .5-9 6 6 0 0 0-11.5-1.5A4 4 0 0 0 6.5 19Z" />
+                </svg>
+                Nube
+              </>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="5" width="18" height="12" rx="2" />
+                  <path d="M2 20h20" />
+                </svg>
+                Local
+              </>
+            )}
+          </span>
+        </div>
       </div>
     </div>
   )
