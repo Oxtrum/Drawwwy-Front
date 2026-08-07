@@ -164,6 +164,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
   }
 
   const onPointerDown = (ev: PointerEvent): void => {
+    if (eng.readOnly) return
     if (ev.button === 1 || ev.button === 2 || (ev.button === 0 && (ev.altKey || eng.mode === 'hand'))) {
       if (ev.button !== 2) ev.preventDefault()
       eng.panDrag = { x: ev.clientX, y: ev.clientY, startX: eng.viewX, startY: eng.viewY, isRight: ev.button === 2, moved: false }
@@ -463,6 +464,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
   }
 
   const onKeyDown = (ev: KeyboardEvent): void => {
+    if (eng.readOnly) return
     const tag = (ev.target as HTMLElement | null)?.tagName
     if (tag === 'TEXTAREA' || tag === 'INPUT') return
     const k = ev.key.toLowerCase()

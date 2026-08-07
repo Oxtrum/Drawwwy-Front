@@ -2,6 +2,7 @@
 
 import { GRID } from './config'
 import { DocumentState } from './state'
+import { newCollaborationId } from '../lib/collaboration/identity'
 import type { Edge, Node, Page, SingleSelection } from './types'
 
 export interface Clip {
@@ -268,6 +269,7 @@ export class SelectionManager {
     clip.nodes.forEach(n => {
       const c = DocumentState.deep(n)
       map[n.id] = c.id = page.nextId++
+      c.collabId = newCollaborationId()
       c.group = regroup(n.group)
       c.z = this.state.nextZ(page)
       c.x += GRID
@@ -279,6 +281,7 @@ export class SelectionManager {
     clip.edges.forEach(e => {
       const c = DocumentState.deep(e)
       c.id = page.nextId++
+      c.collabId = newCollaborationId()
       c.group = regroup(e.group)
       c.z = this.state.nextZ(page)
       c.from = map[e.from] ?? e.from

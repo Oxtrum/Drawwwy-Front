@@ -6,6 +6,7 @@ import { attachInteraction } from './interaction'
 import { render } from './render'
 import { SelectionManager } from './selection'
 import { DocumentState } from './state'
+import { OperationJournal, type CollaborationOperation, type OperationKind } from '../lib/collaboration/protocol'
 import type { ProjectData } from './state'
 import type {
   ConnectDragState, DragState, Edge, MarqueeState, Node, PlacementState, Point, ResizeState, Shape,
@@ -64,6 +65,7 @@ export class CanvasEngine {
   viewZoom = 0.8
 
   playing = true
+  readOnly = false
   pasteTimer: ReturnType<typeof setTimeout> | null = null
 
   editing: Node | Edge | null = null
@@ -71,12 +73,14 @@ export class CanvasEngine {
   contextMenu: { x: number; y: number } | null = null
 
   onChange: (() => void) | null = null
+  onOperation: ((operation: CollaborationOperation) => void) | null = null
   onEditBoxChange: ((box: EditBox | null) => void) | null = null
 
   private t0 = performance.now()
   private pausedAt = 0
   private raf = 0
   private detach: (() => void) | null = null
+  private journal = new OperationJournal()
 
   constructor() {
     this.sel = new SelectionManager(this.state, () => this.notify())
@@ -90,6 +94,10 @@ export class CanvasEngine {
 
   notify(): void {
     this.onChange?.()
+  }
+
+  private operation(kind: OperationKind, targetId: string, payload: Record<string, unknown>): void {
+    this.onOperation?.(this.journal.create(kind, targetId, payload))
   }
 
   mount(canvas: HTMLCanvasElement, wrap: HTMLElement): void {
@@ -179,6 +187,7 @@ export class CanvasEngine {
   }
 
   selectShape(shape: Shape | null): void {
+    if (this.readOnly) return
     this.pendingShape = shape
     this.pendingIcon = null
     this.mode = 'select'
@@ -193,36 +202,44 @@ export class CanvasEngine {
   }
 
   setTheme(theme: string): void {
+    if (this.readOnly) return
     this.state.doc.theme = resolveTheme(theme)
+    this.operation('document.theme', 'document', { theme: this.state.doc.theme })
     this.state.scheduleAutosave()
     this.notify()
   }
 
   updateSettings(patch: Partial<typeof this.state.settings>): void {
+    if (this.readOnly) return
     Object.assign(this.state.settings, patch)
     this.state.scheduleAutosave()
     this.notify()
   }
 
   updateNode(id: number, patch: Partial<Node>): void {
+    if (this.readOnly) return
     const n = this.state.nodeById(id)
     if (!n) return
     this.sel.pushUndo()
     Object.assign(n, patch)
+    this.operation('node.patch', n.collabId || `legacy:node:${id}`, patch as Record<string, unknown>)
     this.state.scheduleAutosave()
     this.notify()
   }
 
   updateEdge(id: number, patch: Partial<Edge>): void {
+    if (this.readOnly) return
     const e = this.state.edgeById(id)
     if (!e) return
     this.sel.pushUndo()
     Object.assign(e, patch)
+    this.operation('edge.patch', e.collabId || `legacy:edge:${id}`, patch as Record<string, unknown>)
     this.state.scheduleAutosave()
     this.notify()
   }
 
   addPage(): void {
+    if (this.readOnly) return
     this.state.doc.pages.push(this.state.blankPage('Página ' + (this.state.doc.pages.length + 1)))
     this.state.doc.cur = this.state.doc.pages.length - 1
     this.sel.clearSel()
@@ -238,6 +255,7 @@ export class CanvasEngine {
   }
 
   removePage(i: number): void {
+    if (this.readOnly) return
     if (this.state.doc.pages.length <= 1) return
     this.state.doc.pages.splice(i, 1)
     this.state.doc.cur = DocumentState.clamp(this.state.doc.cur, 0, this.state.doc.pages.length - 1)
@@ -247,9 +265,11 @@ export class CanvasEngine {
   }
 
   renamePage(i: number, name: string): void {
+    if (this.readOnly) return
     const pg = this.state.doc.pages[i]
     if (!pg) return
     pg.name = name
+    this.operation('page.rename', pg.collabId || `legacy:page:${i}`, { name })
     this.state.scheduleAutosave()
     this.notify()
   }
@@ -288,10 +308,12 @@ export class CanvasEngine {
   }
 
   commitEdit(): void {
+    if (this.readOnly) { this.cancelEdit(); return }
     if (!this.editing || !this.editBox) return
     const v = this.editBox.value
     if (this.editing.label !== v) this.sel.pushUndo()
     this.editing.label = v
+    this.operation('from' in this.editing ? 'edge.patch' : 'node.patch', this.editing.collabId || `legacy:entity:${this.editing.id}`, { label: v })
     this.editing = null
     this.editBox = null
     this.onEditBoxChange?.(null)

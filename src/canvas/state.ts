@@ -3,6 +3,7 @@
 import { DEFAULT_THEME, GRID, PALETTE, iconBg, resolveTheme } from './config'
 import { edgePoints } from './geometry'
 import type { Bounds, Document, Edge, Node, Page, Settings, Shape } from './types'
+import { legacyCollaborationId, newCollaborationId } from '../lib/collaboration/identity'
 
 interface LegacyEdge extends Partial<Edge> {
   bidir?: boolean
@@ -66,7 +67,7 @@ export class DocumentState {
   }
 
   blankPage(name: string): Page {
-    return { name, nodes: [], edges: [], nextId: 1 }
+    return { collabId: newCollaborationId(), name, nodes: [], edges: [], nextId: 1 }
   }
 
   currentPage(): Page {
@@ -130,6 +131,7 @@ export class DocumentState {
     const defaultColor = shape === 'icon' && extra.icon ? (iconBg[extra.icon] || PALETTE[0].c) : PALETTE[0].c
     const n: Node = {
       id: page.nextId++,
+      collabId: newCollaborationId(),
       z: this.nextZ(page),
       shape,
       x: DocumentState.snap(x),
@@ -155,6 +157,7 @@ export class DocumentState {
     const page = this.currentPage()
     const e: Edge = {
       id: page.nextId++,
+      collabId: newCollaborationId(),
       z: this.nextZ(page),
       from: a,
       to: b,
@@ -202,7 +205,7 @@ export class DocumentState {
   }
 
   serializeProject(): ProjectFile {
-    return { version: 3, app: 'drawwwy', doc: this.doc, settings: this.settings }
+    return { version: 4, app: 'drawwwy', doc: this.doc, settings: this.settings }
   }
 
   setProjectName(name: string): void {
@@ -299,6 +302,7 @@ export class DocumentState {
         pg.edges.forEach(e => { e.z = z++ })
         pg.nodes.forEach(n => { n.z = z++ })
       })
+      this.ensureCollaborationIDs()
       if (d.settings) Object.assign(this.settings, d.settings)
       // Un documento guardado puede traer un tema ya retirado del sistema de diseño.
       this.doc.theme = resolveTheme(this.doc.theme)
@@ -306,6 +310,14 @@ export class DocumentState {
       // Autosaves de antes de que existiera el nombre de tablero no lo traen.
       this.doc.name = this.doc.name || 'Tablero sin título'
       this.onProjectApplied?.()
+    })
+  }
+
+  private ensureCollaborationIDs(): void {
+    this.doc.pages.forEach((page, pageIndex) => {
+      page.collabId ||= legacyCollaborationId('page', pageIndex, 0)
+      page.nodes.forEach(node => { node.collabId ||= legacyCollaborationId('node', pageIndex, node.id) })
+      page.edges.forEach(edge => { edge.collabId ||= legacyCollaborationId('edge', pageIndex, edge.id) })
     })
   }
 

@@ -23,6 +23,7 @@ export interface Waypoint {
 
 export interface Node {
   id: number
+  collabId?: string
   /** Orden de apilado (z-index) compartido con las aristas de la misma página:
    *  determina qué se dibuja encima y qué recibe el click cuando se superponen. */
   z: number
@@ -67,6 +68,7 @@ export interface Node {
 
 export interface Edge {
   id: number
+  collabId?: string
   /** Ver `Node.z`: mismo espacio de apilado, compartido entre nodos y aristas. */
   z: number
   /** Ver `Node.group`: los grupos mezclan nodos y aristas. */
@@ -93,6 +95,7 @@ export interface Edge {
 }
 
 export interface Page {
+  collabId?: string
   name: string
   nodes: Node[]
   edges: Edge[]
