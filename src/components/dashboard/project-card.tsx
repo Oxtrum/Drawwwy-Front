@@ -9,9 +9,10 @@ interface ProjectCardProps {
   project: Project
   onRequestRename: (project: Project) => void
   onRequestDelete: (project: Project) => void
+  onRequestDuplicate: (project: Project) => void
 }
 
-export function ProjectCard({ project, onRequestRename, onRequestDelete }: ProjectCardProps) {
+export function ProjectCard({ project, onRequestRename, onRequestDelete, onRequestDuplicate }: ProjectCardProps) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -57,19 +58,25 @@ export function ProjectCard({ project, onRequestRename, onRequestDelete }: Proje
             </button>
             {menuOpen && (
               <div className="ctx-menu" onClick={ev => ev.stopPropagation()}>
-                <button onClick={requestRename}>Renombrar</button>
-                <button
+                <button onClick={() => { setMenuOpen(false); onRequestDuplicate(project) }}>Duplicar</button>
+                {project.capabilities?.edit !== false && <button onClick={requestRename}>Renombrar</button>}
+                {project.capabilities?.delete !== false && <button
                   className="danger"
                   onClick={() => { setMenuOpen(false); onRequestDelete(project) }}
                 >
                   Eliminar
-                </button>
+                </button>}
               </div>
             )}
           </div>
         </div>
         <div className="meta-row">
           <span className="date">Editado {relativeTime(project.updatedAt)}</span>
+          {project.access && project.access !== 'owner' && (
+            <span className={`access-badge ${project.access === 'editor' ? 'can-edit' : 'read-only'}`}>
+              {project.access === 'editor' ? 'Puede editar' : 'Solo lectura'}
+            </span>
+          )}
           <span className={project.source === 'remote' ? 'badge cloud' : 'badge'}>
             {project.source === 'remote' ? (
               <>

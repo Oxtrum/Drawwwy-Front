@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { renderCurrentPageThumbnail } from '../../canvas/export'
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { useProjectStore } from '../../lib/stores/project-store'
 import { AccountMenu } from '../ui/account-menu'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
 import { HeaderMenu } from './header-menu'
+import { ShareDialog } from './share-dialog'
 
 export function EditorHeader() {
   const navigate = useNavigate()
@@ -15,7 +15,8 @@ export function EditorHeader() {
   const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
   const saveStatus = useProjectStore(s => s.saveStatus)
   const activeProject = useProjectStore(s => s.activeProject)
-  const saveActiveProject = useProjectStore(s => s.saveActiveProject)
+  const reloadAfterConflict = useProjectStore(s => s.reloadAfterConflict)
+  const saveConflictAsCopy = useProjectStore(s => s.saveConflictAsCopy)
   const settings = engine.state.settings
   // Se recalcula en cada notify() del engine (la suscripción a `version` de
   // arriba), que es justo cuando se activa el flujo de una arista o el pulso
@@ -51,11 +52,17 @@ export function EditorHeader() {
 
   const handleBackToDashboard = async (): Promise<void> => {
     engine.commitEdit()
-    if (activeProject) {
-      const thumbnail = await renderCurrentPageThumbnail(engine).catch(() => null)
-      await saveActiveProject(engine.serialize(), engine.state.doc.name, thumbnail)
-    }
     navigate('/')
+  }
+
+  const handleReloadAfterConflict = async (): Promise<void> => {
+    const data = await reloadAfterConflict()
+    if (data) window.location.reload()
+  }
+
+  const handleSaveConflictAsCopy = async (): Promise<void> => {
+    const copy = await saveConflictAsCopy()
+    if (copy) navigate(`/editor/${copy.id}`, { replace: true })
   }
 
   const saveText = saveStatus === 'dirty'
@@ -103,6 +110,17 @@ export function EditorHeader() {
 
       <div className="header-pill">
         <span className="save-status">{saveText}</span>
+        {saveStatus === 'conflict' && (
+          <>
+            <button className="icon-btn" title="Recargar la version remota" aria-label="Recargar la version remota" onClick={() => void handleReloadAfterConflict()}>
+              <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0 1 5" /><path d="M20 4v7h-7" /></svg>
+            </button>
+            <button className="icon-btn" title="Guardar mis cambios como copia" aria-label="Guardar mis cambios como copia" onClick={() => void handleSaveConflictAsCopy()}>
+              <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0 1 1h3" /></svg>
+            </button>
+          </>
+        )}
+        <ShareDialog project={activeProject} />
         <div className="pill-divider" />
         <ThemeToggle />
         <div className="pill-divider" />

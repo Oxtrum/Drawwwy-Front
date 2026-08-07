@@ -44,6 +44,7 @@ export function DashboardPage() {
   const createProject = useProjectStore(s => s.createProject)
   const deleteProject = useProjectStore(s => s.deleteProject)
   const renameProject = useProjectStore(s => s.renameProject)
+  const duplicateProject = useProjectStore(s => s.duplicateProject)
   const authStatus = useAuthStore(s => s.status)
   const user = useAuthStore(s => s.user)
   const [query, setQuery] = useState('')
@@ -58,6 +59,9 @@ export function DashboardPage() {
 
   const guestCount = projects.filter(p => p.source === 'guest').length
   const firstName = user?.name?.split(/\s+/)[0]
+  const recentProjects = filtered.slice(0, 6)
+  const ownProjects = filtered.filter(project => project.source === 'guest' || !project.access || project.access === 'owner')
+  const sharedProjects = filtered.filter(project => project.source === 'remote' && project.access !== undefined && project.access !== 'owner')
 
   const handleCreate = async (): Promise<void> => {
     const project = await createProject()
@@ -81,6 +85,11 @@ export function DashboardPage() {
     if (!pendingDelete) return
     await deleteProject(pendingDelete.id)
     setPendingDelete(null)
+  }
+
+  const handleDuplicate = async (project: Project): Promise<void> => {
+    const copy = await duplicateProject(project.id)
+    if (copy) navigate(`/editor/${copy.id}`)
   }
 
   return (
@@ -150,12 +159,19 @@ export function DashboardPage() {
               <div className="dashboard-grid">
                 {/* La baldosa de creación solo en la vista completa: dentro de
                     unos resultados de búsqueda no es un resultado. */}
-                {!query && <CreateTile onCreate={() => void handleCreate()} />}
-                {filtered.map(p => (
-                  <ProjectCard key={p.id} project={p} onRequestRename={openRename} onRequestDelete={setPendingDelete} />
+                {(query ? filtered : recentProjects).map(p => (
+                  <ProjectCard key={p.id} project={p} onRequestRename={openRename} onRequestDelete={setPendingDelete} onRequestDuplicate={project => void handleDuplicate(project)} />
                 ))}
               </div>
             )}
+            {!query && <section className="dash-board-section">
+              <div className="dash-section-head"><h2>Mis tableros</h2><span className="dash-count">{ownProjects.length}</span></div>
+              <div className="dashboard-grid"><CreateTile onCreate={() => void handleCreate()} />{ownProjects.map(p => <ProjectCard key={p.id} project={p} onRequestRename={openRename} onRequestDelete={setPendingDelete} onRequestDuplicate={project => void handleDuplicate(project)} />)}</div>
+            </section>}
+            {!query && sharedProjects.length > 0 && <section className="dash-board-section">
+              <div className="dash-section-head"><h2>Compartidos conmigo</h2><span className="dash-count">{sharedProjects.length}</span></div>
+              <div className="dashboard-grid">{sharedProjects.map(p => <ProjectCard key={p.id} project={p} onRequestRename={openRename} onRequestDelete={setPendingDelete} onRequestDuplicate={project => void handleDuplicate(project)} />)}</div>
+            </section>}
           </>
         )}
       </div>

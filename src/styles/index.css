@@ -124,6 +124,14 @@ input[type=number],
 
 .editor-shell{flex:1; display:flex; flex-direction:column; min-height:0;}
 .editor-shell main{flex:1; display:flex; min-height:0;}
+.read-only-notice{
+  position:fixed; z-index:45; top:66px; left:50%; transform:translateX(-50%);
+  display:flex; align-items:center; gap:6px; padding:6px 10px;
+  color:#047857; background:var(--surface); border:1px solid rgba(16,185,129,.55);
+  border-radius:999px; box-shadow:var(--shadow-sm); font-size:var(--fs-sm); font-weight:600;
+  pointer-events:none;
+}
+.read-only-notice svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
 
 /* ---------------- header (pills flotantes) ---------------- */
 .editor-shell > header{
@@ -716,6 +724,7 @@ kbd{
 
 /* ============ Responsive editor ============ */
 @media (max-width: 700px) {
+  .read-only-notice{top:58px; font-size:var(--fs-xs); padding:5px 8px;}
   .editor-shell > header { gap: 4px; padding: 8px; }
   .editor-shell > header .logo { margin-right: 4px; gap: 7px; }
   .editor-shell > header .logo .logo-mark { width: 28px; height: 28px; }

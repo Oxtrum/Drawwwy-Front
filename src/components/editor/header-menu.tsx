@@ -41,6 +41,9 @@ function PdfIcon() {
 function CloudIcon() {
   return <svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.1 8.5 4.5 4.5 0 0 0 7 18z" /><path d="M12 12v7M9 16l3 3 3-3" /></svg>
 }
+function DuplicateIcon() {
+  return <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></svg>
+}
 
 interface HeaderMenuProps {
   engine: CanvasEngine
@@ -54,6 +57,7 @@ export function HeaderMenu({ engine }: HeaderMenuProps) {
   const authStatus = useAuthStore(s => s.status)
   const activeProject = useProjectStore(s => s.activeProject)
   const saveDocumentAsRemote = useProjectStore(s => s.saveDocumentAsRemote)
+  const duplicateProject = useProjectStore(s => s.duplicateProject)
 
   useClickOutside(wrapRef, () => setOpen(false))
 
@@ -124,6 +128,13 @@ export function HeaderMenu({ engine }: HeaderMenuProps) {
     if (project) navigate(`/editor/${project.id}`, { replace: true })
   }
 
+  const handleDuplicate = async (): Promise<void> => {
+    if (!activeProject) return
+    const copy = await duplicateProject(activeProject.id)
+    close()
+    if (copy) navigate(`/editor/${copy.id}`)
+  }
+
   return (
     <div className="hmenu" ref={wrapRef}>
       <input
@@ -158,6 +169,7 @@ export function HeaderMenu({ engine }: HeaderMenuProps) {
           <MenuItem icon={<JpgIcon />} label="Exportar JPG" onClick={() => void handleExportJpg()} />
           <MenuItem icon={<PdfIcon />} label="Exportar PDF" onClick={() => void handleExportPdf()} />
           <div className="ctx-sep" />
+          {activeProject && <MenuItem icon={<DuplicateIcon />} label="Duplicar tablero" onClick={() => void handleDuplicate()} />}
           <MenuItem icon={<CloudIcon />} label="Guardar en la nube" onClick={() => void handleCloudSave()} />
         </div>
       )}
