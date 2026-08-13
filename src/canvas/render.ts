@@ -446,6 +446,60 @@ function drawGroupOutlines(c: Ctx, eng: CanvasEngine, T: ThemeColors): void {
   c.restore()
 }
 
+function drawRemotePresence(c: Ctx, eng: CanvasEngine): void {
+  const page = eng.state.currentPage()
+  const pageId = page.collabId
+  if (!pageId) return
+
+  for (const collaborator of eng.remoteCollaborators) {
+    const target = collaborator.activeTarget
+    if (target?.pageId === pageId) {
+      c.save()
+      c.strokeStyle = collaborator.color
+      c.globalAlpha = 0.48
+      c.lineWidth = 2.5 / eng.viewZoom
+      if (target.type === 'node') {
+        const node = page.nodes.find(item => item.collabId === target.id)
+        if (node) {
+          c.beginPath()
+          roundRect(c, node.x - node.w / 2 - 7 / eng.viewZoom, node.y - node.h / 2 - 7 / eng.viewZoom, node.w + 14 / eng.viewZoom, node.h + 14 / eng.viewZoom, 8 / eng.viewZoom)
+          c.stroke()
+        }
+      } else {
+        const edge = page.edges.find(item => item.collabId === target.id)
+        if (edge) {
+          const points = edgePoints(edge, id => eng.state.nodeById(id))
+          c.beginPath()
+          points.forEach((point, index) => { if (index === 0) c.moveTo(point.x, point.y); else c.lineTo(point.x, point.y) })
+          c.stroke()
+        }
+      }
+      c.restore()
+    }
+
+    const cursor = collaborator.cursor
+    if (!cursor || cursor.pageId !== pageId) continue
+    const dotRadius = 4 / eng.viewZoom
+    const labelFont = 11 / eng.viewZoom
+    c.save()
+    c.fillStyle = collaborator.color
+    c.beginPath()
+    c.arc(cursor.x, cursor.y, dotRadius, 0, Math.PI * 2)
+    c.fill()
+    c.font = `600 ${labelFont}px ${FONT_SANS}`
+    const paddingX = 6 / eng.viewZoom
+    const labelHeight = 18 / eng.viewZoom
+    const labelWidth = c.measureText(collaborator.name).width + paddingX * 2
+    c.beginPath()
+    roundRect(c, cursor.x + dotRadius + 5 / eng.viewZoom, cursor.y - labelHeight / 2, labelWidth, labelHeight, 4 / eng.viewZoom)
+    c.fill()
+    c.fillStyle = '#FFFFFF'
+    c.textBaseline = 'middle'
+    c.fillText(collaborator.name, cursor.x + dotRadius + 5 / eng.viewZoom + paddingX, cursor.y)
+    c.restore()
+  }
+}
+
 export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = {}): void {
   const state = eng.state
   const theme = state.doc.theme
@@ -506,6 +560,7 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
   }
 
   drawGroupOutlines(c, eng, T)
+  drawRemotePresence(c, eng)
 
   if (eng.placement) {
     const placement = eng.placement

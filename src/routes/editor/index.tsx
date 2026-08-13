@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { CanvasStage } from '../../components/editor/canvas-stage'
 import { EditorHeader } from '../../components/editor/header'
@@ -12,29 +12,87 @@ import { useAuthStore } from '../../lib/stores/auth-store'
 import { useEditorStore } from '../../lib/stores/editor-store'
 import { useProjectStore } from '../../lib/stores/project-store'
 import { loadPersonalBoardState, savePersonalBoardState } from '../../lib/collaboration/personal-state'
+import { LocalYjsCollaboration, localCollaborationConfig } from '../../lib/collaboration/local-yjs'
+import { createCollaborationTicket } from '../../lib/api/projects-api'
 
 export function EditorPage() {
   const { id } = useParams()
   const engine = useEditorStore(s => s.engine)
   const version = useEditorStore(s => s.version)
   const authStatus = useAuthStore(s => s.status)
+  const user = useAuthStore(s => s.user)
+  const accessToken = useAuthStore(s => s.accessToken)
   const openProject = useProjectStore(s => s.openProject)
   const saveActiveProject = useProjectStore(s => s.saveActiveProject)
   const markDirty = useProjectStore(s => s.markDirty)
   const clearActiveProject = useProjectStore(s => s.clearActiveProject)
   const activeProject = useProjectStore(s => s.activeProject)
+  const setCollaborators = useEditorStore(s => s.setCollaborators)
+  const setCollaborationStatus = useEditorStore(s => s.setCollaborationStatus)
   const applyingRef = useRef(false)
   const lastPersistedSnapshotRef = useRef('')
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveInFlightRef = useRef(false)
   const saveQueuedRef = useRef(false)
   const activeProjectRef = useRef(activeProject)
+  const collaborationActiveRef = useRef(false)
   const saveActiveProjectRef = useRef(saveActiveProject)
   const AUTOSAVE_DELAY_MS = 2500
+  const [collaborationSessionActive, setCollaborationSessionActive] = useState(false)
+  const collaborationConfig = localCollaborationConfig()
+  const collaborationUrl = collaborationConfig?.url
+  const collaborationEnabled = Boolean(collaborationUrl && activeProject?.source === 'remote' && activeProject.remoteId && accessToken)
+  const collaborationActive = collaborationEnabled && collaborationSessionActive
 
   useEffect(() => {
     activeProjectRef.current = activeProject
   }, [activeProject])
+
+  useEffect(() => {
+    collaborationActiveRef.current = collaborationActive
+  }, [collaborationActive])
+
+  useEffect(() => {
+    const projectId = activeProject?.remoteId
+    if (!collaborationUrl || !accessToken || !projectId) {
+      setCollaborationSessionActive(false)
+      setCollaborationStatus(null)
+      setCollaborators([])
+      return
+    }
+
+    let cancelled = false
+    let collaboration: LocalYjsCollaboration | null = null
+    setCollaborationSessionActive(false)
+    setCollaborationStatus('connecting')
+    void createCollaborationTicket(accessToken, projectId)
+      .then(ticket => {
+        if (cancelled) return
+        collaboration = new LocalYjsCollaboration(
+          engine,
+          collaborationUrl,
+          projectId,
+          ticket.token,
+          user?.name || 'Colaborador',
+          setCollaborationStatus,
+          setCollaborators,
+        )
+        setCollaborationSessionActive(true)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setCollaborationSessionActive(false)
+        setCollaborationStatus('disconnected')
+      })
+
+    return () => {
+      cancelled = true
+      collaboration?.destroy()
+      setCollaborationSessionActive(false)
+      setCollaborators([])
+      setCollaborationStatus(null)
+    }
+  }, [accessToken, activeProject?.remoteId, collaborationUrl, engine, setCollaborators, setCollaborationStatus, user?.name])
 
   useEffect(() => {
     engine.readOnly = activeProject?.capabilities?.edit === false
@@ -51,6 +109,7 @@ export function EditorPage() {
   }, [])
 
   const flushSave = useCallback(async (): Promise<void> => {
+    if (collaborationActiveRef.current) return
     if (!activeProjectRef.current) return
     if (saveInFlightRef.current) {
       saveQueuedRef.current = true
@@ -118,9 +177,13 @@ export function EditorPage() {
     if (!activeProject || applyingRef.current) return
     const snapshot = JSON.stringify(engine.serialize())
     if (snapshot === lastPersistedSnapshotRef.current) return
+    if (collaborationActive) {
+      lastPersistedSnapshotRef.current = snapshot
+      return
+    }
     markDirty()
     scheduleSave()
-  }, [activeProject, engine, markDirty, saveActiveProject, scheduleSave, version])
+  }, [activeProject, collaborationActive, engine, markDirty, saveActiveProject, scheduleSave, version])
 
   useEffect(() => {
     if (!id || !activeProject) return

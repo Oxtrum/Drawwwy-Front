@@ -46,6 +46,11 @@ export interface ProjectWriteInput {
   revision?: number
 }
 
+export interface CollaborationTicket {
+  token: string
+  expires_at: string
+}
+
 export function listProjects(token: string): Promise<RemoteProjectList> {
   return apiRequest<RemoteProjectList>('/projects/', { token })
 }
@@ -60,6 +65,10 @@ export function createProject(token: string, input: ProjectWriteInput): Promise<
 
 export function getProject(token: string, id: number): Promise<RemoteProject> {
   return apiRequest<RemoteProject>(`/projects/${id}`, { token })
+}
+
+export function createCollaborationTicket(token: string, id: number): Promise<CollaborationTicket> {
+  return apiRequest<CollaborationTicket>(`/projects/${id}/collaboration-ticket`, { method: 'POST', token })
 }
 
 export function updateProject(token: string, id: number, input: ProjectWriteInput): Promise<RemoteProject> {

@@ -7,6 +7,7 @@ import { render } from './render'
 import { SelectionManager } from './selection'
 import { DocumentState } from './state'
 import { OperationJournal, type CollaborationOperation, type OperationKind } from '../lib/collaboration/protocol'
+import type { ActiveCollaborationTarget, CollaboratorPresence } from '../lib/collaboration/presence'
 import type { ProjectData } from './state'
 import type {
   ConnectDragState, DragState, Edge, MarqueeState, Node, PlacementState, Point, ResizeState, Shape,
@@ -73,6 +74,9 @@ export class CanvasEngine {
   contextMenu: { x: number; y: number } | null = null
 
   onChange: (() => void) | null = null
+  onDocumentChange: (() => void) | null = null
+  onPointerMove: ((point: Point) => void) | null = null
+  onInteractionChange: ((target: ActiveCollaborationTarget | null) => void) | null = null
   onOperation: ((operation: CollaborationOperation) => void) | null = null
   onEditBoxChange: ((box: EditBox | null) => void) | null = null
 
@@ -81,6 +85,7 @@ export class CanvasEngine {
   private raf = 0
   private detach: (() => void) | null = null
   private journal = new OperationJournal()
+  remoteCollaborators: CollaboratorPresence[] = []
 
   constructor() {
     this.sel = new SelectionManager(this.state, () => this.notify())
@@ -94,10 +99,46 @@ export class CanvasEngine {
 
   notify(): void {
     this.onChange?.()
+    this.onDocumentChange?.()
   }
 
   private operation(kind: OperationKind, targetId: string, payload: Record<string, unknown>): void {
     this.onOperation?.(this.journal.create(kind, targetId, payload))
+  }
+
+  setPointer(point: Point): void {
+    this.mouse.x = point.x
+    this.mouse.y = point.y
+    this.onPointerMove?.(point)
+    this.publishInteraction()
+  }
+
+  publishInteraction(): void {
+    this.onInteractionChange?.(this.currentInteractionTarget())
+  }
+
+  setRemoteCollaborators(collaborators: CollaboratorPresence[]): void {
+    this.remoteCollaborators = collaborators.filter(collaborator => !collaborator.isSelf)
+    this.notify()
+  }
+
+  private currentInteractionTarget(): ActiveCollaborationTarget | null {
+    const pageId = this.state.currentPage().collabId
+    if (!pageId) return null
+    const node = (id: number): ActiveCollaborationTarget | null => {
+      const item = this.state.nodeById(id)
+      return item?.collabId ? { pageId, type: 'node', id: item.collabId } : null
+    }
+    const edge = (id: number): ActiveCollaborationTarget | null => {
+      const item = this.state.edgeById(id)
+      return item?.collabId ? { pageId, type: 'edge', id: item.collabId } : null
+    }
+    if (this.resizing) return node(this.resizing.id)
+    if (this.wpDrag) return edge(this.wpDrag.edgeId)
+    if (this.connectDrag) return node(this.connectDrag.fromId)
+    if (this.drag) return node(Number(Object.keys(this.drag.offs)[0]))
+    if (this.editing) return 'from' in this.editing ? edge(this.editing.id) : node(this.editing.id)
+    return null
   }
 
   mount(canvas: HTMLCanvasElement, wrap: HTMLElement): void {
@@ -301,6 +342,7 @@ export class CanvasEngine {
       align: isNode ? tgt.align : undefined,
     }
     this.onEditBoxChange?.(this.editBox)
+    this.publishInteraction()
   }
 
   setEditValue(v: string): void {
@@ -317,6 +359,7 @@ export class CanvasEngine {
     this.editing = null
     this.editBox = null
     this.onEditBoxChange?.(null)
+    this.publishInteraction()
     this.state.scheduleAutosave()
     this.notify()
   }
@@ -325,6 +368,7 @@ export class CanvasEngine {
     this.editing = null
     this.editBox = null
     this.onEditBoxChange?.(null)
+    this.publishInteraction()
   }
 
   openContextMenu(x: number, y: number): void {
@@ -355,7 +399,7 @@ export class CanvasEngine {
     return this.state.serializeProject()
   }
 
-  applyProjectData(data: ProjectData): void {
+  applyProjectData(data: ProjectData, preserveView = false): void {
     this.commitEdit()
     this.drag = null
     this.placement = null
@@ -367,7 +411,7 @@ export class CanvasEngine {
     this.pendingIcon = null
     this.connecting = null
     this.state.applyProjectData(data)
-    this.centerView()
+    if (!preserveView) this.centerView()
     this.notify()
   }
 }

@@ -12,6 +12,8 @@ export function EditorHeader() {
   const navigate = useNavigate()
   const engine = useEditorStore(s => s.engine)
   useEditorStore(s => s.version)
+  const collaborators = useEditorStore(s => s.collaborators)
+  const collaborationStatus = useEditorStore(s => s.collaborationStatus)
   const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
   const saveStatus = useProjectStore(s => s.saveStatus)
   const activeProject = useProjectStore(s => s.activeProject)
@@ -78,6 +80,11 @@ export function EditorHeader() {
             : activeProject?.source === 'remote'
               ? 'Nube'
               : 'Local'
+  const visibleCollaborators = collaborators.slice(0, 4)
+  const hiddenCollaborators = collaborators.length - visibleCollaborators.length
+  const collaboratorsTitle = collaborators.length > 0
+    ? collaborators.map(collaborator => `${collaborator.name}${collaborator.isSelf ? ' (tú)' : ''}`).join(', ')
+    : collaborationStatus === 'connecting' ? 'Conectando colaboración' : 'Reconectando colaboración'
 
   return (
     <header>
@@ -107,6 +114,24 @@ export function EditorHeader() {
       </div>
 
       <div className="spacer" />
+
+      {collaborationStatus && (
+        <div className="header-pill collaborators-pill" title={collaboratorsTitle} aria-label={collaboratorsTitle}>
+          {visibleCollaborators.length > 0 ? <>
+            <div className="collaborator-avatars">
+              {visibleCollaborators.map(collaborator => (
+                <span key={collaborator.clientId} className="collaborator-avatar" style={{ backgroundColor: collaborator.color }} title={collaborator.name}>
+                  {collaborator.name.slice(0, 1).toUpperCase()}
+                </span>
+              ))}
+            </div>
+            {hiddenCollaborators > 0 && <span className="collaborator-count">+{hiddenCollaborators}</span>}
+          </> : <>
+            <span className={`collaboration-dot ${collaborationStatus}`} />
+            <span className="collaborators-connecting">Conectando</span>
+          </>}
+        </div>
+      )}
 
       <div className="header-pill">
         <span className="save-status">{saveText}</span>

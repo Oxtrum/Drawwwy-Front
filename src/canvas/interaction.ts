@@ -176,8 +176,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
 
     ev.preventDefault()
     const p = toWorld(eng, ev)
-    eng.mouse.x = p.x
-    eng.mouse.y = p.y
+    eng.setPointer(p)
     eng.commitEdit()
     cv.setPointerCapture(ev.pointerId)
 
@@ -190,6 +189,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
         start: { ...p },
         current: { ...p },
       }
+      eng.publishInteraction()
       return
     }
 
@@ -221,13 +221,14 @@ export function attachInteraction(eng: CanvasEngine): () => void {
           fy: sn.y + (ci <= 1 ? sn.h / 2 : -sn.h / 2),
           aspect: (sn.shape === 'image' || sn.shape === 'icon') ? sn.w / sn.h : null,
         }
+        eng.publishInteraction()
         return
       }
     }
     if (single && single.type === 'edge' && single.obj) {
       const se = single.obj as Edge
       const wi = hitWaypoint(se, p.x, p.y)
-      if (wi >= 0) { eng.sel.pushUndo(); eng.wpDrag = { edgeId: se.id, idx: wi }; return }
+      if (wi >= 0) { eng.sel.pushUndo(); eng.wpDrag = { edgeId: se.id, idx: wi }; eng.publishInteraction(); return }
       const mi = hitMidpoint(eng, se, p.x, p.y)
       if (mi >= 0) {
         eng.sel.pushUndo()
@@ -237,6 +238,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
         }
         se.waypoints.splice(mi, 0, { x: p.x, y: p.y })
         eng.wpDrag = { edgeId: se.id, idx: mi }
+        eng.publishInteraction()
         return
       }
     }
@@ -244,6 +246,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     const arrowSide = hitSideArrow(eng.hoverNode, p.x, p.y)
     if (arrowSide && eng.hoverNode) {
       eng.connectDrag = { fromId: eng.hoverNode.id, fromSide: arrowSide }
+      eng.publishInteraction()
       return
     }
 
@@ -274,6 +277,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
           e.route = 'ortho'
         }
       }
+      eng.publishInteraction()
       return
     }
 
@@ -300,8 +304,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       return
     }
     const p = toWorld(eng, ev)
-    eng.mouse.x = p.x
-    eng.mouse.y = p.y
+    eng.setPointer(p)
     if (eng.placement) {
       eng.placement.current = { ...p }
       return
@@ -446,6 +449,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     eng.placement = null
     eng.resizing = null
     eng.wpDrag = null
+    eng.publishInteraction()
     if (hadDrag) eng.state.scheduleAutosave()
     eng.notify()
   }

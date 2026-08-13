@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { CanvasEngine, type EditBox } from '../../canvas/engine'
+import type { CollaboratorPresence } from '../collaboration/presence'
+import type { CollaborationStatus } from '../collaboration/local-yjs'
 
 interface EditorStore {
   engine: CanvasEngine
@@ -11,6 +13,10 @@ interface EditorStore {
   toggleMoreShapes: (open?: boolean) => void
   animationModalOpen: boolean
   toggleAnimationModal: (open?: boolean) => void
+  collaborators: CollaboratorPresence[]
+  setCollaborators: (collaborators: CollaboratorPresence[]) => void
+  collaborationStatus: CollaborationStatus | null
+  setCollaborationStatus: (status: CollaborationStatus | null) => void
 }
 
 export const engine = new CanvasEngine()
@@ -25,6 +31,10 @@ export const useEditorStore = create<EditorStore>(set => ({
   toggleMoreShapes: open => set(s => ({ moreShapesOpen: open ?? !s.moreShapesOpen })),
   animationModalOpen: false,
   toggleAnimationModal: open => set(s => ({ animationModalOpen: open ?? !s.animationModalOpen })),
+  collaborators: [],
+  setCollaborators: collaborators => set({ collaborators }),
+  collaborationStatus: null,
+  setCollaborationStatus: collaborationStatus => set({ collaborationStatus }),
 }))
 
 engine.onChange = () => useEditorStore.setState(s => ({ version: s.version + 1 }))
