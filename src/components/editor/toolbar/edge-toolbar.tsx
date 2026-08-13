@@ -76,6 +76,13 @@ export function EdgeToolbar({ edge }: { edge: Edge }) {
         >
           <svg viewBox="0 0 24 24"><path d="M4 12h14M14 7l5 5-5 5" /></svg>
         </button>
+        <button
+          className={edge.route === 'ortho' ? 'toggled' : ''}
+          aria-label="Ruta ortogonal" title={edge.route === 'ortho' ? 'Cambiar a ruta directa' : 'Cambiar a ruta a 90°'}
+          onClick={() => commit({ route: edge.route === 'ortho' ? 'straight' : 'ortho', waypoints: [] })}
+        >
+          <svg viewBox="0 0 24 24"><path d="M4 18h9V6h7" /></svg>
+        </button>
         <button aria-label="Flujo" title={FLOW_LABEL[edge.flowDir]} onClick={cycleFlow}>
           {edge.flowDir === 'alternate'
             ? <svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M15 5l4 4-4 4M9 11l-4 4 4 4" /></svg>

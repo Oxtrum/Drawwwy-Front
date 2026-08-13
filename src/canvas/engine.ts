@@ -9,7 +9,7 @@ import { DocumentState } from './state'
 import { OperationJournal, type CollaborationOperation, type OperationKind } from '../lib/collaboration/protocol'
 import type { ProjectData } from './state'
 import type {
-  ConnectDragState, DragState, Edge, MarqueeState, Node, PlacementState, Point, ResizeState, Shape,
+  ConnectDragState, DragState, Edge, MarqueeState, Node, PlacementState, Point, ResizeState, Shape, Side,
 } from './types'
 
 export interface PanDragState {
@@ -24,6 +24,17 @@ export interface PanDragState {
 export interface WpDragState {
   edgeId: number
   idx: number
+}
+
+export interface EdgeEndDragState {
+  edgeId: number
+  end: 'from' | 'to'
+}
+
+export interface ClickConnectState {
+  id: number
+  side: Side
+  anchor: number
 }
 
 export interface EditBox {
@@ -48,12 +59,13 @@ export class CanvasEngine {
   mode: 'select' | 'connect' | 'hand' = 'select'
   pendingShape: Shape | null = null
   pendingIcon: string | null = null
-  connecting: number | null = null
+  connecting: ClickConnectState | null = null
 
   drag: DragState | null = null
   placement: PlacementState | null = null
   resizing: ResizeState | null = null
   wpDrag: WpDragState | null = null
+  edgeEndDrag: EdgeEndDragState | null = null
   connectDrag: ConnectDragState | null = null
   marquee: MarqueeState | null = null
   panDrag: PanDragState | null = null
@@ -361,6 +373,7 @@ export class CanvasEngine {
     this.placement = null
     this.resizing = null
     this.wpDrag = null
+    this.edgeEndDrag = null
     this.connectDrag = null
     this.marquee = null
     this.pendingShape = null

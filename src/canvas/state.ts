@@ -1,7 +1,7 @@
 'use strict'
 
 import { DEFAULT_THEME, GRID, PALETTE, iconBg, resolveTheme } from './config'
-import { edgePoints } from './geometry'
+import { edgePoints, inferSide } from './geometry'
 import type { Bounds, Document, Edge, Node, Page, Settings, Shape } from './types'
 import { legacyCollaborationId, newCollaborationId } from '../lib/collaboration/identity'
 
@@ -59,7 +59,7 @@ export class DocumentState {
 
   constructor() {
     this.doc = { name: 'Tablero sin título', theme: DEFAULT_THEME, pages: [this.blankPage('Página 1')], cur: 0 }
-    this.settings = { speed: 0.5, dots: 3, build: false, stagger: 0.45, grid: true }
+    this.settings = { speed: 0.5, dots: 3, build: false, stagger: 0.45, grid: true, edgeRoute: 'straight' }
     if (this.hasAutosave()) {
       this.autosavePaused = true
       this.autosaveReady = false
@@ -163,6 +163,10 @@ export class DocumentState {
       to: b,
       fromSide: null,
       toSide: null,
+      fromAnchor: 0.5,
+      toAnchor: 0.5,
+      fromAnchorManual: false,
+      toAnchorManual: false,
       route: 'straight',
       waypoints: [],
       label: '',
@@ -175,7 +179,39 @@ export class DocumentState {
       ...opts,
     }
     page.edges.push(e)
+    this.rebalanceParallelEdges(a, b)
     return e
+  }
+
+  /** Distribuye las conexiones entre dos nodos en ambos sentidos. Las puntas
+   *  colocadas manualmente se respetan; solo se reubican las automáticas. */
+  rebalanceParallelEdges(a: number, b: number): void {
+    if (a === b) return
+    const page = this.currentPage()
+    const edges = page.edges
+      .filter(e => (e.from === a && e.to === b) || (e.from === b && e.to === a))
+      .sort((x, y) => x.id - y.id)
+    if (!edges.length) return
+
+    for (const edge of edges) {
+      const from = this.nodeById(edge.from)
+      const to = this.nodeById(edge.to)
+      if (!from || !to) continue
+      edge.fromSide ||= inferSide(from, to)
+      edge.toSide ||= inferSide(to, from)
+      edge.fromAnchor ??= 0.5
+      edge.toAnchor ??= 0.5
+      edge.fromAnchorManual ??= false
+      edge.toAnchorManual ??= false
+    }
+
+    const gap = 0.18
+    const center = (edges.length - 1) / 2
+    edges.forEach((edge, index) => {
+      const position = DocumentState.clamp(0.5 + (index - center) * gap, 0.18, 0.82)
+      if (!edge.fromAnchorManual) edge.fromAnchor = position
+      if (!edge.toAnchorManual) edge.toAnchor = position
+    })
   }
 
   nodeById(id: number): Node | undefined {
@@ -289,6 +325,14 @@ export class DocumentState {
         if (!e.flowDir) e.flowDir = 'normal'
         if (!e.waypoints) e.waypoints = []
         if (!e.route) e.route = 'straight'
+        e.fromAnchor = typeof e.fromAnchor === 'number' && Number.isFinite(e.fromAnchor)
+          ? DocumentState.clamp(e.fromAnchor, 0, 1)
+          : 0.5
+        e.toAnchor = typeof e.toAnchor === 'number' && Number.isFinite(e.toAnchor)
+          ? DocumentState.clamp(e.toAnchor, 0, 1)
+          : 0.5
+        e.fromAnchorManual = !!e.fromAnchorManual
+        e.toAnchorManual = !!e.toAnchorManual
         if (!e.lineStyle) e.lineStyle = e.dashed ? 'dashed' : 'solid'
         if (e.lineWidth === undefined) e.lineWidth = 2
       }))
@@ -304,6 +348,7 @@ export class DocumentState {
       })
       this.ensureCollaborationIDs()
       if (d.settings) Object.assign(this.settings, d.settings)
+      if (this.settings.edgeRoute !== 'ortho') this.settings.edgeRoute = 'straight'
       // Un documento guardado puede traer un tema ya retirado del sistema de diseño.
       this.doc.theme = resolveTheme(this.doc.theme)
       this.doc.cur = DocumentState.clamp(this.doc.cur || 0, 0, this.doc.pages.length - 1)
