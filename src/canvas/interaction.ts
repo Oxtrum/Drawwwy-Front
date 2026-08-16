@@ -1,7 +1,7 @@
 'use strict'
 
 import { ARROW_OFF, DIR, ICONS, SIDES, W, H } from './config'
-import { edgePoints, nearestAnchorSide, placementBounds, pointAt, sideOfPoint, sidePoint } from './geometry'
+import { edgePoints, nearestSideAnchor, placementBounds, pointAt, sideOfPoint, sidePoint } from './geometry'
 import { handleSize, nodeCorners, normRect } from './render'
 import { DocumentState } from './state'
 import { CLIP_PREFIX } from './selection'
@@ -89,6 +89,14 @@ export function hitWaypoint(e: Edge, x: number, y: number): number {
   const wps = e.waypoints || []
   for (let i = 0; i < wps.length; i++) if (Math.hypot(x - wps[i].x, y - wps[i].y) < 10) return i
   return -1
+}
+
+function hitEdgeEnd(eng: CanvasEngine, e: Edge, x: number, y: number): 'from' | 'to' | null {
+  const pts = edgePoints(e, id => eng.state.nodeById(id))
+  if (pts.length < 2) return null
+  if (Math.hypot(x - pts[0].x, y - pts[0].y) < 11) return 'from'
+  const last = pts[pts.length - 1]
+  return Math.hypot(x - last.x, y - last.y) < 11 ? 'to' : null
 }
 
 export function hitMidpoint(eng: CanvasEngine, e: Edge, x: number, y: number): number {
@@ -197,10 +205,17 @@ export function attachInteraction(eng: CanvasEngine): () => void {
 
     if (eng.mode === 'connect') {
       if (n) {
-        if (eng.connecting === null) eng.connecting = n.id
+        const anchor = nearestSideAnchor(n, p)
+        if (eng.connecting === null) eng.connecting = { id: n.id, side: anchor.side, anchor: anchor.position }
         else {
           eng.sel.pushUndo()
-          const e = eng.state.newEdge(eng.connecting, n.id)
+          const e = eng.state.newEdge(eng.connecting.id, n.id, {
+            fromSide: eng.connecting.side,
+            fromAnchor: eng.connecting.anchor,
+            toSide: anchor.side,
+            toAnchor: anchor.position,
+            route: eng.state.settings.edgeRoute,
+          })
           eng.connecting = null
           if (e) eng.sel.selectOnly('edge', e.id)
         }
@@ -227,6 +242,8 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     }
     if (single && single.type === 'edge' && single.obj) {
       const se = single.obj as Edge
+      const end = hitEdgeEnd(eng, se, p.x, p.y)
+      if (end) { eng.sel.pushUndo(); eng.edgeEndDrag = { edgeId: se.id, end }; return }
       const wi = hitWaypoint(se, p.x, p.y)
       if (wi >= 0) { eng.sel.pushUndo(); eng.wpDrag = { edgeId: se.id, idx: wi }; eng.publishInteraction(); return }
       const mi = hitMidpoint(eng, se, p.x, p.y)
@@ -245,7 +262,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
 
     const arrowSide = hitSideArrow(eng.hoverNode, p.x, p.y)
     if (arrowSide && eng.hoverNode) {
-      eng.connectDrag = { fromId: eng.hoverNode.id, fromSide: arrowSide }
+      eng.connectDrag = { fromId: eng.hoverNode.id, fromSide: arrowSide, fromAnchor: 0.5 }
       eng.publishInteraction()
       return
     }
@@ -344,6 +361,23 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       }
       return
     }
+    if (eng.edgeEndDrag) {
+      const e = eng.state.edgeById(eng.edgeEndDrag.edgeId)
+      const node = e && eng.state.nodeById(eng.edgeEndDrag.end === 'from' ? e.from : e.to)
+      if (e && node) {
+        const anchor = nearestSideAnchor(node, p)
+        if (eng.edgeEndDrag.end === 'from') {
+          e.fromSide = anchor.side
+          e.fromAnchor = anchor.position
+          e.fromAnchorManual = true
+        } else {
+          e.toSide = anchor.side
+          e.toAnchor = anchor.position
+          e.toAnchorManual = true
+        }
+      }
+      return
+    }
     if (eng.mode === 'hand') { cv.style.cursor = 'grab'; return }
     eng.hoverNode = null
     const ns = eng.state.currentPage().nodes
@@ -355,6 +389,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     let cur = 'default'
     if (eng.pendingShape || eng.pendingIcon || eng.mode === 'connect' || eng.connectDrag) cur = 'crosshair'
     else if (single && single.type === 'node' && single.obj && hitCorner(single.obj as Node, p.x, p.y) >= 0) cur = 'nwse-resize'
+    else if (single && single.type === 'edge' && single.obj && hitEdgeEnd(eng, single.obj as Edge, p.x, p.y)) cur = 'crosshair'
     else if (eng.hoverNode && hitSideArrow(eng.hoverNode, p.x, p.y)) cur = 'crosshair'
     else if (eng.hoverNode) cur = 'grab'
     cv.style.cursor = cur
@@ -379,7 +414,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       return
     }
     const p = toWorld(eng, ev)
-    const hadDrag = !!(eng.drag || eng.resizing || eng.wpDrag || eng.placement)
+    const hadDrag = !!(eng.drag || eng.resizing || eng.wpDrag || eng.edgeEndDrag || eng.placement)
     if (eng.placement) {
       const placement = eng.placement
       const dx = placement.current.x - placement.start.x
@@ -415,11 +450,15 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       if (tgt) {
         eng.sel.pushUndo()
         const isSelf = tgt.id === eng.connectDrag.fromId
-        const snapSide = isSelf ? eng.connectDrag.fromSide : nearestAnchorSide(tgt, p, 22)
+        const targetAnchor = isSelf
+          ? { side: eng.connectDrag.fromSide, position: eng.connectDrag.fromAnchor }
+          : nearestSideAnchor(tgt, p)
         const e = eng.state.newEdge(eng.connectDrag.fromId, tgt.id, {
           fromSide: eng.connectDrag.fromSide,
-          toSide: snapSide,
-          route: 'ortho',
+          fromAnchor: eng.connectDrag.fromAnchor,
+          toSide: targetAnchor.side,
+          toAnchor: targetAnchor.position,
+          route: eng.state.settings.edgeRoute,
         })
         if (e) eng.sel.selectOnly('edge', e.id)
       }
@@ -449,6 +488,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     eng.placement = null
     eng.resizing = null
     eng.wpDrag = null
+    eng.edgeEndDrag = null
     eng.publishInteraction()
     if (hadDrag) eng.state.scheduleAutosave()
     eng.notify()
@@ -520,6 +560,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       eng.pendingIcon = null
       eng.connecting = null
       eng.connectDrag = null
+      eng.edgeEndDrag = null
       eng.marquee = null
       eng.contextMenu = null
       eng.notify()

@@ -1,7 +1,7 @@
 'use strict'
 
 import { ARROW_OFF, DIR, FONT_SANS, GRID, HANDLE, HANDLE_MAX, ICONS, PALETTE, SIDES, canvasFont, getImg, iconGlyphURL, themeOf } from './config'
-import { edgePoints, nearestAnchorSide, placementBounds, pointAt, sidePoint } from './geometry'
+import { edgePoints, nearestAnchorSide, placementBounds, pointAt, sideAnchorPoint, sidePoint } from './geometry'
 import { DocumentState } from './state'
 import type { Bounds, DotShape, Edge, MarqueeState, Node, Settings, ThemeColors } from './types'
 import type { CanvasEngine } from './engine'
@@ -368,6 +368,11 @@ export function drawEdge(c: Ctx, e: Edge, t: number, theme: string, isExport: bo
   }
   if (single) {
     c.lineWidth = 1.6
+    for (const endpoint of [pts[0], pts[pts.length - 1]]) {
+      c.fillStyle = T.sel
+      c.strokeStyle = T.lblBg
+      c.beginPath(); c.rect(endpoint.x - 6, endpoint.y - 6, 12, 12); c.fill(); c.stroke()
+    }
     ;(e.waypoints || []).forEach(wp => {
       c.fillStyle = T.sel
       c.beginPath(); c.arc(wp.x, wp.y, 6, 0, Math.PI * 2); c.fill()
@@ -592,7 +597,7 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
   if (eng.connectDrag) {
     const A = state.nodeById(eng.connectDrag.fromId)
     if (A) {
-      const p = sidePoint(A, eng.connectDrag.fromSide)
+      const p = sideAnchorPoint(A, eng.connectDrag.fromSide, eng.connectDrag.fromAnchor)
       c.save()
       c.strokeStyle = T.sel; c.setLineDash([6, 5]); c.lineWidth = 2 / eng.viewZoom
       c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(eng.mouse.x, eng.mouse.y); c.stroke(); c.setLineDash([])
@@ -617,11 +622,12 @@ export function render(c: Ctx, t: number, eng: CanvasEngine, opts: RenderOpts = 
     }
   }
   if (eng.connecting !== null) {
-    const A = state.nodeById(eng.connecting)
+    const A = state.nodeById(eng.connecting.id)
     if (A) {
+      const p = sideAnchorPoint(A, eng.connecting.side, eng.connecting.anchor)
       c.save()
       c.strokeStyle = T.sel; c.setLineDash([5, 5]); c.lineWidth = 2 / eng.viewZoom
-      c.beginPath(); c.moveTo(A.x, A.y); c.lineTo(eng.mouse.x, eng.mouse.y); c.stroke()
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(eng.mouse.x, eng.mouse.y); c.stroke()
       c.restore()
     }
   }

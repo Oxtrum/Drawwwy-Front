@@ -327,8 +327,12 @@ export class SelectionManager {
     if (!this.selN.size && !this.selE.size) return
     this.pushUndo()
     const page = this.state.currentPage()
+    const affectedPairs = page.edges
+      .filter(e => this.selE.has(e.id) || this.selN.has(e.from) || this.selN.has(e.to))
+      .map(e => [e.from, e.to] as const)
     page.edges = page.edges.filter(e => !this.selE.has(e.id) && !this.selN.has(e.from) && !this.selN.has(e.to))
     page.nodes = page.nodes.filter(n => !this.selN.has(n.id))
+    affectedPairs.forEach(([from, to]) => this.state.rebalanceParallelEdges(from, to))
     this.pruneGroups()
     this.clearSel()
   }

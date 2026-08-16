@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { addImageFromBlob } from '../../canvas/interaction'
 import { useEditorStore } from '../../lib/stores/editor-store'
 
@@ -10,6 +10,7 @@ export function ToolRail() {
   const moreShapesOpen = useEditorStore(s => s.moreShapesOpen)
   const toggleMoreShapes = useEditorStore(s => s.toggleMoreShapes)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [arrowOptionsOpen, setArrowOptionsOpen] = useState(false)
 
   return (
     <nav className="rail" aria-label="Herramientas">
@@ -34,11 +35,35 @@ export function ToolRail() {
       <button
         className={engine.mode === 'connect' ? 'toggled' : ''}
         aria-label="Conectar con clics (C)"
-        onClick={() => engine.setMode('connect')}
+        aria-expanded={arrowOptionsOpen}
+        onClick={() => {
+          engine.setMode('connect')
+          setArrowOptionsOpen(v => !v)
+        }}
       >
         <svg viewBox="0 0 24 24"><circle cx="5" cy="19" r="2.4" /><circle cx="19" cy="5" r="2.4" /><path d="M7 17L17 7" /></svg>
         <span className="tip">Flecha</span>
       </button>
+      {engine.mode === 'connect' && arrowOptionsOpen && (
+        <div className="arrow-route-menu" role="menu" aria-label="Tipo de ruta de flecha">
+          <button
+            className={engine.state.settings.edgeRoute === 'straight' ? 'toggled' : ''}
+            role="menuitemradio" aria-checked={engine.state.settings.edgeRoute === 'straight'}
+            onClick={() => { engine.updateSettings({ edgeRoute: 'straight' }); setArrowOptionsOpen(false) }}
+          >
+            <svg viewBox="0 0 24 24"><path d="M4 18L19 5M14 5h5v5" /></svg>
+            Directa
+          </button>
+          <button
+            className={engine.state.settings.edgeRoute === 'ortho' ? 'toggled' : ''}
+            role="menuitemradio" aria-checked={engine.state.settings.edgeRoute === 'ortho'}
+            onClick={() => { engine.updateSettings({ edgeRoute: 'ortho' }); setArrowOptionsOpen(false) }}
+          >
+            <svg viewBox="0 0 24 24"><path d="M4 18h9V6h7M15 4l5 2-5 2" /></svg>
+            A 90°
+          </button>
+        </div>
+      )}
 
       <hr />
 

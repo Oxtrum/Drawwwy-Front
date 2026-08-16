@@ -17,6 +17,7 @@ export function createBlankProjectFile(name = 'Sin titulo', theme = DEFAULT_THEM
       build: false,
       stagger: 0.45,
       grid: true,
+      edgeRoute: 'straight',
     },
   }
 }

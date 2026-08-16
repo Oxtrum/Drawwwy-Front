@@ -54,6 +54,14 @@ function validateEdge(value: unknown, index: number): value is Edge {
   for (const key of ['id', 'from', 'to']) {
     if (!isFiniteNumber(value[key]) || !Number.isInteger(value[key])) throw invalid(`${key} inválido en edge ${index}`)
   }
+  for (const key of ['fromAnchor', 'toAnchor']) {
+    if (value[key] !== undefined && (!isFiniteNumber(value[key]) || value[key] < 0 || value[key] > 1)) {
+      throw invalid(`${key} inválido en edge ${index}`)
+    }
+  }
+  for (const key of ['fromAnchorManual', 'toAnchorManual']) {
+    if (value[key] !== undefined && typeof value[key] !== 'boolean') throw invalid(`${key} inválido en edge ${index}`)
+  }
   return true
 }
 

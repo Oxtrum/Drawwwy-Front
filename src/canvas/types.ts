@@ -77,6 +77,14 @@ export interface Edge {
   to: number
   fromSide: Side | null
   toSide: Side | null
+  /** Posición normalizada (0..1) sobre el lado de salida/llegada. Sin valor
+   *  se interpreta como 0.5 para conservar los documentos previos. */
+  fromAnchor?: number
+  toAnchor?: number
+  /** Impide que una futura distribución automática reubique un extremo que
+   *  fue colocado expresamente por el usuario. */
+  fromAnchorManual?: boolean
+  toAnchorManual?: boolean
   route: Route
   waypoints: Waypoint[]
   label: string
@@ -115,6 +123,8 @@ export interface Settings {
   build: boolean
   stagger: number
   grid: boolean
+  /** Ruta elegida para las flechas que se creen a continuación. */
+  edgeRoute: Route
 }
 
 export interface Bounds {
@@ -154,6 +164,7 @@ export interface MarqueeState {
 export interface ConnectDragState {
   fromId: number
   fromSide: Side
+  fromAnchor: number
 }
 
 export type SingleSelection =
