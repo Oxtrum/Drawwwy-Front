@@ -3,6 +3,7 @@ import { apiRequest } from './client'
 
 export interface RemoteProject {
   id: number
+  public_id?: string | null
   user_id: number
   name: string
   doc?: unknown
@@ -62,48 +63,56 @@ export function getProject(token: string, id: number): Promise<RemoteProject> {
   return apiRequest<RemoteProject>(`/projects/${id}`, { token })
 }
 
-export function updateProject(token: string, id: number, input: ProjectWriteInput): Promise<RemoteProject> {
-  return apiRequest<RemoteProject>(`/projects/${id}`, {
+export function getProjectByPublicID(token: string, publicID: string): Promise<RemoteProject> {
+  return apiRequest<RemoteProject>(`/projects/ref/${encodeURIComponent(publicID)}`, { token })
+}
+
+function projectPath(id: number, publicID?: string | null): string {
+  return publicID ? `/projects/ref/${encodeURIComponent(publicID)}` : `/projects/${id}`
+}
+
+export function updateProject(token: string, id: number, input: ProjectWriteInput, publicID?: string | null): Promise<RemoteProject> {
+  return apiRequest<RemoteProject>(projectPath(id, publicID), {
     method: 'PUT',
     token,
     body: JSON.stringify(input),
   })
 }
 
-export function renameProject(token: string, id: number, name: string, revision: number): Promise<RemoteProject> {
-  return apiRequest<RemoteProject>(`/projects/${id}`, {
+export function renameProject(token: string, id: number, name: string, revision: number, publicID?: string | null): Promise<RemoteProject> {
+  return apiRequest<RemoteProject>(projectPath(id, publicID), {
     method: 'PATCH',
     token,
     body: JSON.stringify({ name, revision }),
   })
 }
 
-export function duplicateProject(token: string, id: number, name?: string): Promise<RemoteProject> {
-  return apiRequest<RemoteProject>(`/projects/${id}/duplicate`, {
+export function duplicateProject(token: string, id: number, name?: string, publicID?: string | null): Promise<RemoteProject> {
+  return apiRequest<RemoteProject>(`${projectPath(id, publicID)}/duplicate`, {
     method: 'POST',
     token,
     body: JSON.stringify(name?.trim() ? { name: name.trim() } : {}),
   })
 }
 
-export function listMembers(token: string, id: number): Promise<ProjectMember[]> {
-  return apiRequest<ProjectMember[]>(`/projects/${id}/members`, { token })
+export function listMembers(token: string, id: number, publicID?: string | null): Promise<ProjectMember[]> {
+  return apiRequest<ProjectMember[]>(`${projectPath(id, publicID)}/members`, { token })
 }
 
-export function addMember(token: string, id: number, input: { email: string; role: 'editor' | 'viewer' }): Promise<void> {
-  return apiRequest<void>(`/projects/${id}/members`, { method: 'POST', token, body: JSON.stringify(input) })
+export function addMember(token: string, id: number, input: { email: string; role: 'editor' | 'viewer' }, publicID?: string | null): Promise<void> {
+  return apiRequest<void>(`${projectPath(id, publicID)}/members`, { method: 'POST', token, body: JSON.stringify(input) })
 }
 
-export function updateMember(token: string, id: number, userId: number, role: 'editor' | 'viewer'): Promise<void> {
-  return apiRequest<void>(`/projects/${id}/members/${userId}`, { method: 'PATCH', token, body: JSON.stringify({ role }) })
+export function updateMember(token: string, id: number, userId: number, role: 'editor' | 'viewer', publicID?: string | null): Promise<void> {
+  return apiRequest<void>(`${projectPath(id, publicID)}/members/${userId}`, { method: 'PATCH', token, body: JSON.stringify({ role }) })
 }
 
-export function removeMember(token: string, id: number, userId: number): Promise<void> {
-  return apiRequest<void>(`/projects/${id}/members/${userId}`, { method: 'DELETE', token })
+export function removeMember(token: string, id: number, userId: number, publicID?: string | null): Promise<void> {
+  return apiRequest<void>(`${projectPath(id, publicID)}/members/${userId}`, { method: 'DELETE', token })
 }
 
-export function deleteProject(token: string, id: number): Promise<void> {
-  return apiRequest<void>(`/projects/${id}`, {
+export function deleteProject(token: string, id: number, publicID?: string | null): Promise<void> {
+  return apiRequest<void>(projectPath(id, publicID), {
     method: 'DELETE',
     token,
   })

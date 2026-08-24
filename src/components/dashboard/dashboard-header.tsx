@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useProjectStore } from '../../lib/stores/project-store'
+import { projectEditorPath, useProjectStore } from '../../lib/stores/project-store'
 import { AccountMenu } from '../ui/account-menu'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
@@ -16,7 +16,7 @@ export function DashboardHeader({ query, onQueryChange }: DashboardHeaderProps) 
 
   const handleCreate = async (): Promise<void> => {
     const project = await createProject()
-    navigate(`/editor/${project.id}`)
+    navigate(projectEditorPath(project))
   }
 
   return (

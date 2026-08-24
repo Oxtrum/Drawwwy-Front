@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { DashboardHeader } from '../components/dashboard/dashboard-header'
 import { ProjectCard } from '../components/dashboard/project-card'
 import { useAuthStore } from '../lib/stores/auth-store'
-import { useProjectStore } from '../lib/stores/project-store'
+import { projectEditorPath, useProjectStore } from '../lib/stores/project-store'
 import type { Project } from '../lib/stores/project-store'
 
 function CreateTile({ onCreate }: { onCreate: () => void }) {
@@ -65,7 +65,7 @@ export function DashboardPage() {
 
   const handleCreate = async (): Promise<void> => {
     const project = await createProject()
-    navigate(`/editor/${project.id}`)
+    navigate(projectEditorPath(project))
   }
 
   const openRename = (project: Project): void => {
@@ -89,7 +89,7 @@ export function DashboardPage() {
 
   const handleDuplicate = async (project: Project): Promise<void> => {
     const copy = await duplicateProject(project.id)
-    if (copy) navigate(`/editor/${copy.id}`)
+    if (copy) navigate(projectEditorPath(copy))
   }
 
   return (

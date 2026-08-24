@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { CanvasStage } from '../../components/editor/canvas-stage'
 import { EditorHeader } from '../../components/editor/header'
 import { PagesBar } from '../../components/editor/pages-bar'
@@ -10,11 +10,12 @@ import { AnimationModal } from '../../components/editor/animation-modal'
 import { renderCurrentPageThumbnail } from '../../canvas/export'
 import { useAuthStore } from '../../lib/stores/auth-store'
 import { useEditorStore } from '../../lib/stores/editor-store'
-import { useProjectStore } from '../../lib/stores/project-store'
+import { projectEditorPath, useProjectStore } from '../../lib/stores/project-store'
 import { loadPersonalBoardState, savePersonalBoardState } from '../../lib/collaboration/personal-state'
 
 export function EditorPage() {
-  const { id } = useParams()
+  const { id, publicID, localRef } = useParams()
+  const navigate = useNavigate()
   const engine = useEditorStore(s => s.engine)
   const version = useEditorStore(s => s.version)
   const authStatus = useAuthStore(s => s.status)
@@ -88,17 +89,22 @@ export function EditorPage() {
   useEffect(() => {
     let cancelled = false
     if (authStatus === 'unknown') return
-    if (!id) {
+    if (!id && !publicID && !localRef) {
       clearActiveProject()
       lastPersistedSnapshotRef.current = JSON.stringify(engine.serialize())
       return
     }
+    // Do not leave the previous board selected while the next route loads.
+    // Otherwise an edit made during a slow navigation can be saved into the
+    // board that was just left.
+    clearActiveProject()
     applyingRef.current = true
-    void openProject(id).then(data => {
+    void openProject(id, publicID, localRef).then(data => {
       if (cancelled) return
       if (data) engine.applyProjectData(data)
-      if (id) {
-        const personal = loadPersonalBoardState(id)
+      const projectReference = localRef ?? publicID ?? id
+      if (projectReference) {
+        const personal = loadPersonalBoardState(projectReference)
         if (personal.currentPage !== undefined) engine.gotoPage(personal.currentPage)
         if (personal.grid !== undefined) engine.state.settings.grid = personal.grid
         if (personal.viewX !== undefined) engine.viewX = personal.viewX
@@ -107,12 +113,19 @@ export function EditorPage() {
       }
       lastPersistedSnapshotRef.current = JSON.stringify(engine.serialize())
       applyingRef.current = false
+      const opened = useProjectStore.getState().activeProject
+      if (data && !publicID && opened?.source === 'remote' && opened.publicId) {
+        navigate(projectEditorPath(opened), { replace: true })
+      }
+      if (data && !localRef && opened?.source === 'guest' && opened.localRef) {
+        navigate(projectEditorPath(opened), { replace: true })
+      }
     })
     return () => {
       cancelled = true
       applyingRef.current = false
     }
-  }, [authStatus, clearActiveProject, engine, id, openProject])
+  }, [authStatus, clearActiveProject, engine, id, localRef, navigate, openProject, publicID])
 
   useEffect(() => {
     if (!activeProject || applyingRef.current) return
@@ -123,13 +136,14 @@ export function EditorPage() {
   }, [activeProject, engine, markDirty, saveActiveProject, scheduleSave, version])
 
   useEffect(() => {
-    if (!id || !activeProject) return
-    savePersonalBoardState(id, {
+    const projectReference = localRef ?? publicID ?? id
+    if (!projectReference || !activeProject) return
+    savePersonalBoardState(projectReference, {
       currentPage: engine.state.doc.cur,
       grid: engine.state.settings.grid,
       viewX: engine.viewX, viewY: engine.viewY, viewZoom: engine.viewZoom,
     })
-  }, [activeProject, engine, id, version])
+  }, [activeProject, engine, id, localRef, publicID, version])
 
   useEffect(() => {
     return () => {

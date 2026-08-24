@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { exportCurrentPageAsJpg, exportDocumentAsPdf, renderCurrentPageThumbnail } from '../../canvas/export'
 import { createDrwyFile, downloadBlob, DRWY_MIME, parseDrwyText, sanitizeFilename } from '../../lib/drwy/format'
 import { useAuthStore } from '../../lib/stores/auth-store'
-import { useProjectStore } from '../../lib/stores/project-store'
+import { projectEditorPath, useProjectStore } from '../../lib/stores/project-store'
 import { useClickOutside } from '../../hooks/use-click-outside'
 import type { CanvasEngine } from '../../canvas/engine'
 
@@ -125,14 +125,14 @@ export function HeaderMenu({ engine }: HeaderMenuProps) {
     const thumbnail = await renderCurrentPageThumbnail(engine).catch(() => null)
     const project = await saveDocumentAsRemote(engine.serialize(), engine.state.doc.name, thumbnail)
     close()
-    if (project) navigate(`/editor/${project.id}`, { replace: true })
+    if (project) navigate(projectEditorPath(project), { replace: true })
   }
 
   const handleDuplicate = async (): Promise<void> => {
     if (!activeProject) return
     const copy = await duplicateProject(activeProject.id)
     close()
-    if (copy) navigate(`/editor/${copy.id}`)
+    if (copy) navigate(projectEditorPath(copy))
   }
 
   return (

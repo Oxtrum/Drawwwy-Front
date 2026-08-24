@@ -34,6 +34,9 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
+    // Project responses are user-specific and must never be served from a
+    // browser cache after navigation or a session change.
+    cache: options.cache ?? 'no-store',
   })
   const envelope = await readEnvelope<T>(response)
   if (!response.ok || !envelope.success) {

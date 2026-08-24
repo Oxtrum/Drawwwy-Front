@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as projectsApi from '../../lib/api/projects-api'
 import { useAuthStore } from '../../lib/stores/auth-store'
-import type { Project } from '../../lib/stores/project-store'
+import { projectEditorPath, type Project } from '../../lib/stores/project-store'
 
 export function ShareDialog({ project }: { project: Project | null }) {
   const token = useAuthStore(s => s.accessToken)
@@ -16,27 +16,27 @@ export function ShareDialog({ project }: { project: Project | null }) {
   const canManage = project?.source === 'remote' && project.capabilities?.manage_sharing
   const load = useCallback(async (): Promise<void> => {
     if (!project?.remoteId || !token) return
-    try { setMembers(await projectsApi.listMembers(token, project.remoteId)) } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudieron cargar los accesos') }
-  }, [project?.remoteId, token])
+    try { setMembers(await projectsApi.listMembers(token, project.remoteId, project.publicId)) } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudieron cargar los accesos') }
+  }, [project?.publicId, project?.remoteId, token])
   useEffect(() => { if (open) void load() }, [load, open])
   if (!canManage) return null
 
   const add = async (): Promise<void> => {
     if (!project?.remoteId || !token || !email.trim()) return
     try {
-      await projectsApi.addMember(token, project.remoteId, { email: email.trim(), role })
+      await projectsApi.addMember(token, project.remoteId, { email: email.trim(), role }, project.publicId)
       setEmail(''); setMessage('Acceso actualizado.'); await load()
     } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo compartir') }
   }
   const remove = async (member: projectsApi.ProjectMember): Promise<void> => {
     if (!project?.remoteId || !token || member.role === 'owner') return
-    try { await projectsApi.removeMember(token, project.remoteId, member.user.id); await load() } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo revocar el acceso') }
+    try { await projectsApi.removeMember(token, project.remoteId, member.user.id, project.publicId); await load() } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo revocar el acceso') }
   }
   const changeRole = async (member: projectsApi.ProjectMember, nextRole: 'editor' | 'viewer'): Promise<void> => {
     if (!project?.remoteId || !token || member.role === 'owner' || member.role === nextRole) return
     setUpdatingMemberId(member.user.id)
     try {
-      await projectsApi.updateMember(token, project.remoteId, member.user.id, nextRole)
+      await projectsApi.updateMember(token, project.remoteId, member.user.id, nextRole, project.publicId)
       setMessage('Permiso actualizado.')
       await load()
     } catch (error) {
@@ -48,7 +48,7 @@ export function ShareDialog({ project }: { project: Project | null }) {
   const copyLink = async (): Promise<void> => {
     if (!project?.remoteId) return
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/editor/${project.remoteId}`)
+      await navigator.clipboard.writeText(`${window.location.origin}${projectEditorPath(project)}`)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1800)
     } catch { setMessage('No se pudo copiar el enlace. Puedes copiarlo desde la barra del navegador.') }
@@ -95,7 +95,7 @@ export function ShareDialog({ project }: { project: Project | null }) {
         <div className="modal-field">
           <span>Enlace para usuarios invitados</span>
           <div className="share-link-row">
-            <input readOnly value={`${window.location.origin}/editor/${project.remoteId}`} aria-label="Enlace del tablero" />
+            <input readOnly value={`${window.location.origin}${projectEditorPath(project)}`} aria-label="Enlace del tablero" />
             <button className="primary" onClick={() => void copyLink()}>{copied ? 'Copiado' : 'Copiar enlace'}</button>
           </div>
           <small className="hint">El enlace no concede acceso: la persona debe haber sido invitada e iniciar sesión.</small>

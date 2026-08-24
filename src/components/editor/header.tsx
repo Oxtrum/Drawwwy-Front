@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useEditorStore } from '../../lib/stores/editor-store'
-import { useProjectStore } from '../../lib/stores/project-store'
+import { projectEditorPath, useProjectStore } from '../../lib/stores/project-store'
 import { AccountMenu } from '../ui/account-menu'
 import { Logo } from '../ui/logo'
 import { ThemeToggle } from '../ui/theme-toggle'
@@ -62,7 +62,7 @@ export function EditorHeader() {
 
   const handleSaveConflictAsCopy = async (): Promise<void> => {
     const copy = await saveConflictAsCopy()
-    if (copy) navigate(`/editor/${copy.id}`, { replace: true })
+    if (copy) navigate(projectEditorPath(copy), { replace: true })
   }
 
   const saveText = saveStatus === 'dirty'

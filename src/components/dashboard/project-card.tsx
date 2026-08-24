@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Project } from '../../lib/stores/project-store'
+import { projectEditorPath, type Project } from '../../lib/stores/project-store'
 import { useClickOutside } from '../../lib/hooks/use-click-outside'
 import { relativeTime } from '../../lib/utils'
 import { BoardPlaceholder } from './board-placeholder'
@@ -27,7 +27,7 @@ export function ProjectCard({ project, onRequestRename, onRequestDelete, onReque
   return (
     <div
       className="project-card"
-      onClick={() => navigate(`/editor/${project.id}`)}
+      onClick={() => navigate(projectEditorPath(project))}
     >
       <div className="preview">
         {project.thumbnailUrl

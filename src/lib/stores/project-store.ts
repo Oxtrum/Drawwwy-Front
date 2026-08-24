@@ -12,6 +12,8 @@ export type ProjectSource = 'guest' | 'remote'
 export interface Project {
   id: string
   remoteId?: number
+  publicId?: string | null
+  localRef?: string
   source: ProjectSource
   name: string
   createdAt: string
@@ -23,21 +25,61 @@ export interface Project {
   capabilities?: projectsApi.RemoteProject['capabilities']
 }
 
+export function projectEditorPath(project: Pick<Project, 'id' | 'source' | 'publicId' | 'localRef'>): string {
+  if (project.source === 'guest') return `/editor/local/${project.localRef ?? project.id}`
+  return project.publicId ? `/editor/p/${project.publicId}` : `/editor/${project.id}`
+}
+
 export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict'
 export type SaveResult = 'saved' | 'conflict' | 'error' | 'idle'
 
 const GUEST_KEY = 'drawwwy.projects.guest'
 const GUEST_DOC_PREFIX = 'drawwwy.projectDoc.guest.'
 const UNTITLED = 'Sin titulo'
+const LOCAL_REF_LENGTH = 12
+const LOCAL_REF_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+
+// `openProject` performs an asynchronous request while the editor route can
+// change. Only the newest request is allowed to select the active project.
+let latestOpenRequest = 0
 
 function loadGuestProjects(): Project[] {
   try {
     const raw = localStorage.getItem(GUEST_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed) ? parsed as Project[] : []
+    if (!Array.isArray(parsed)) return []
+    const projects = parsed.filter((project): project is Project => (
+      typeof project === 'object' && project !== null && (project as Project).source === 'guest'
+    ))
+    const knownRefs = new Set<string>()
+    let changed = false
+    for (const project of projects) {
+      if (validLocalRef(project.localRef) && !knownRefs.has(project.localRef)) {
+        knownRefs.add(project.localRef)
+        continue
+      }
+      project.localRef = newLocalRef(knownRefs)
+      knownRefs.add(project.localRef)
+      changed = true
+    }
+    if (changed) persistGuestProjects(projects)
+    return projects
   } catch {
     return []
+  }
+}
+
+function validLocalRef(value: unknown): value is string {
+  return typeof value === 'string' && value.length === LOCAL_REF_LENGTH && /^[A-Za-z0-9_-]+$/.test(value)
+}
+
+function newLocalRef(existing: Set<string> = new Set()): string {
+  for (;;) {
+    const bytes = new Uint8Array(LOCAL_REF_LENGTH)
+    crypto.getRandomValues(bytes)
+    const reference = Array.from(bytes, byte => LOCAL_REF_ALPHABET[byte & 63]).join('')
+    if (!existing.has(reference)) return reference
   }
 }
 
@@ -57,6 +99,7 @@ function toProject(remote: projectsApi.RemoteProject): Project {
   return {
     id: String(remote.id),
     remoteId: remote.id,
+    publicId: remote.public_id ?? null,
     source: 'remote',
     name: remote.name,
     createdAt: remote.created_at,
@@ -96,7 +139,7 @@ interface ProjectStore {
   deleteProject: (id: string) => Promise<void>
   renameProject: (id: string, name: string) => Promise<void>
   duplicateProject: (id: string) => Promise<Project | null>
-  openProject: (id: string) => Promise<ProjectData | null>
+  openProject: (id?: string, publicID?: string, localRef?: string) => Promise<ProjectData | null>
   saveActiveProject: (document: ProjectFile, name?: string, thumbnailUrl?: string | null) => Promise<SaveResult>
   saveDocumentAsRemote: (document: ProjectFile, name?: string, thumbnailUrl?: string | null) => Promise<Project | null>
   reloadAfterConflict: () => Promise<ProjectData | null>
@@ -148,6 +191,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const project: Project = {
       id: crypto.randomUUID(),
+      localRef: newLocalRef(),
       source: 'guest',
       name: title,
       createdAt: now,
@@ -170,7 +214,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!project) return
     const token = tokenOrNull()
     if (project.source === 'remote' && project.remoteId && token) {
-      await projectsApi.deleteProject(token, project.remoteId)
+      await projectsApi.deleteProject(token, project.remoteId, project.publicId)
     } else if (project.source === 'guest') {
       try {
         localStorage.removeItem(guestDocKey(project.id))
@@ -190,7 +234,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!project) return
     const token = tokenOrNull()
     if (project.source === 'remote' && project.remoteId && token) {
-      const remote = await projectsApi.renameProject(token, project.remoteId, trimmed, project.revision ?? 0)
+      const remote = await projectsApi.renameProject(token, project.remoteId, trimmed, project.revision ?? 0, project.publicId)
       const updated = toProject(remote)
       const projects = get().projects.map(p => p.id === id ? updated : p)
       persistGuestProjects(projects)
@@ -211,6 +255,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const copy: Project = {
         ...project,
         id: crypto.randomUUID(),
+        localRef: newLocalRef(new Set(get().projects.map(item => item.localRef).filter(validLocalRef))),
         name: `Copia de ${project.name}`,
         createdAt: now,
         updatedAt: now,
@@ -235,7 +280,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       return null
     }
     try {
-      const remote = await projectsApi.duplicateProject(token, project.remoteId)
+      const remote = await projectsApi.duplicateProject(token, project.remoteId, undefined, project.publicId)
       const copy = toProject(remote)
       set({ projects: [copy, ...get().projects.filter(p => p.id !== copy.id)], error: null })
       return copy
@@ -245,16 +290,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
-  openProject: async id => {
-    const project = get().projects.find(p => p.id === id)
+  openProject: async (id, publicID, localRef) => {
+    const request = ++latestOpenRequest
+    const project = get().projects.find(p => (
+      p.id === id ||
+      (publicID !== undefined && p.publicId === publicID) ||
+      (localRef !== undefined && p.localRef === localRef)
+    ))
     const token = tokenOrNull()
-    const remoteId = project?.remoteId ?? (/^\d+$/.test(id) ? Number(id) : null)
-    if ((project?.source === 'remote' || !project) && remoteId && token) {
+    const remoteId = project?.remoteId ?? (id && /^\d+$/.test(id) ? Number(id) : null)
+    if ((publicID || project?.source === 'remote' || !project) && token && (publicID || remoteId)) {
       set({ loading: true, error: null, saveStatus: 'idle' })
       try {
-        const remote = await projectsApi.getProject(token, remoteId)
+        const remote = publicID
+          ? await projectsApi.getProjectByPublicID(token, publicID)
+          : await projectsApi.getProject(token, remoteId as number)
         const projectData = remoteProjectData(remote)
         const opened = toProject(remote)
+        if (request !== latestOpenRequest) return null
         set({
           activeProject: opened,
           activeProjectData: projectData,
@@ -264,6 +317,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         })
         return projectData
       } catch (error) {
+        if (request !== latestOpenRequest) return null
         set({ loading: false, error: error instanceof Error ? error.message : 'No se pudo abrir el proyecto', saveStatus: 'error' })
         return null
       }
@@ -273,15 +327,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       try {
         const raw = localStorage.getItem(guestDocKey(project.id))
         const data = raw ? JSON.parse(raw) as ProjectData : createBlankProjectFile(project.name)
+        if (request !== latestOpenRequest) return null
         set({ activeProject: project, activeProjectData: data, saveStatus: 'idle' })
         return data
       } catch {
         const data = createBlankProjectFile(project.name)
+        if (request !== latestOpenRequest) return null
         set({ activeProject: project, activeProjectData: data, saveStatus: 'idle' })
         return data
       }
     }
 
+    if (request !== latestOpenRequest) return null
     set({ activeProject: null, activeProjectData: null, saveStatus: 'idle' })
     return null
   },
@@ -316,7 +373,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         doc: createDrwyFile(document, title),
         thumbnail_url: thumbnailUrl ?? project.thumbnailUrl ?? null,
         revision: project.revision,
-      })
+      }, project.publicId)
       const updated = toProject(remote)
       set({
         projects: get().projects.map(p => p.id === updated.id ? updated : p),
@@ -369,7 +426,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const token = tokenOrNull()
     if (!project?.remoteId || !token) return null
     try {
-      const remote = await projectsApi.getProject(token, project.remoteId)
+      const remote = project.publicId
+        ? await projectsApi.getProjectByPublicID(token, project.publicId)
+        : await projectsApi.getProject(token, project.remoteId)
       const data = remoteProjectData(remote)
       const updated = toProject(remote)
       set({
@@ -402,6 +461,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   clearActiveProject: () => {
+    latestOpenRequest += 1
     set({ activeProject: null, activeProjectData: null, conflictDocument: null, saveStatus: 'idle' })
   },
 }))

@@ -26,6 +26,9 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth-callback" element={<AuthCallbackPage />} />
       <Route path="/editor" element={<EditorPage />} />
+      <Route path="/editor/p/:publicID" element={<EditorPage />} />
+      <Route path="/editor/local/:localRef" element={<EditorPage />} />
+      <Route path="/editor/:id/local" element={<EditorPage />} />
       <Route path="/editor/:id" element={<EditorPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
