@@ -5,6 +5,8 @@ import type { Point, Side, ThemeColors } from './types'
 export const W = 2560
 export const H = 1440
 export const GRID = 40
+export const ELEMENT_DRAG_SNAP = GRID / 2
+export const ARROW_WAYPOINT_SNAP = GRID / 4
 export const ARROW_OFF = 24
 export const HANDLE = 7
 export const HANDLE_MAX = 26

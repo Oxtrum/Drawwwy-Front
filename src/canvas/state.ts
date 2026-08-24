@@ -420,8 +420,8 @@ export class DocumentState {
     return t * t * (3 - 2 * t)
   }
 
-  static snap(v: number): number {
-    return Math.round(v / GRID) * GRID
+  static snap(v: number, step = GRID): number {
+    return Math.round(v / step) * step
   }
 
   static deep<T>(o: T): T {

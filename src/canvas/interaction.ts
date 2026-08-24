@@ -1,6 +1,6 @@
 'use strict'
 
-import { ARROW_OFF, DIR, ICONS, SIDES, W, H } from './config'
+import { ARROW_OFF, ARROW_WAYPOINT_SNAP, DIR, ELEMENT_DRAG_SNAP, ICONS, SIDES, W, H } from './config'
 import { edgePoints, nearestSideAnchor, placementBounds, pointAt, sideOfPoint, sidePoint } from './geometry'
 import { handleSize, nodeCorners, normRect } from './render'
 import { DocumentState } from './state'
@@ -252,7 +252,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
           const pts = edgePoints(se, id => eng.state.nodeById(id))
           se.waypoints = pts.slice(1, -1).map(q => ({ x: q.x, y: q.y }))
         }
-        se.waypoints.splice(mi, 0, { x: p.x, y: p.y })
+        se.waypoints.splice(mi, 0, {
+          x: DocumentState.snap(p.x, ARROW_WAYPOINT_SNAP),
+          y: DocumentState.snap(p.y, ARROW_WAYPOINT_SNAP),
+        })
         eng.wpDrag = { edgeId: se.id, idx: mi }
         return
       }
@@ -328,11 +331,14 @@ export function attachInteraction(eng: CanvasEngine): () => void {
       for (const id in eng.drag.offs) {
         const nn = eng.state.nodeById(+id)
         if (nn) {
-          nn.x = DocumentState.snap(p.x - eng.drag.offs[id].dx)
-          nn.y = DocumentState.snap(p.y - eng.drag.offs[id].dy)
+          nn.x = DocumentState.snap(p.x - eng.drag.offs[id].dx, ELEMENT_DRAG_SNAP)
+          nn.y = DocumentState.snap(p.y - eng.drag.offs[id].dy, ELEMENT_DRAG_SNAP)
         }
       }
-      eng.drag.wps.forEach(o => { o.w.x = DocumentState.snap(p.x - o.dx); o.w.y = DocumentState.snap(p.y - o.dy) })
+      eng.drag.wps.forEach(o => {
+        o.w.x = DocumentState.snap(p.x - o.dx, ELEMENT_DRAG_SNAP)
+        o.w.y = DocumentState.snap(p.y - o.dy, ELEMENT_DRAG_SNAP)
+      })
       return
     }
     if (eng.resizing) {
@@ -353,8 +359,8 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     if (eng.wpDrag) {
       const e = eng.state.edgeById(eng.wpDrag.edgeId)
       if (e && e.waypoints[eng.wpDrag.idx]) {
-        e.waypoints[eng.wpDrag.idx].x = DocumentState.snap(p.x)
-        e.waypoints[eng.wpDrag.idx].y = DocumentState.snap(p.y)
+        e.waypoints[eng.wpDrag.idx].x = DocumentState.snap(p.x, ARROW_WAYPOINT_SNAP)
+        e.waypoints[eng.wpDrag.idx].y = DocumentState.snap(p.y, ARROW_WAYPOINT_SNAP)
       }
       return
     }
