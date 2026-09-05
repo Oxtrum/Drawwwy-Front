@@ -60,8 +60,9 @@ function positiveDuration(value: string | undefined, fallback: number): number {
 }
 
 const DRAFT_SAVE_DELAY_MS = 500
-const REMOTE_IDLE_DELAY_MS = positiveDuration(import.meta.env.VITE_REMOTE_SYNC_IDLE_MS, 120_000)
-const REMOTE_MIN_INTERVAL_MS = positiveDuration(import.meta.env.VITE_REMOTE_SYNC_MIN_INTERVAL_MS, 600_000)
+const REMOTE_AUTO_SYNC_ENABLED = import.meta.env.VITE_REMOTE_AUTO_SYNC_ENABLED === 'true'
+const REMOTE_IDLE_DELAY_MS = positiveDuration(import.meta.env.VITE_REMOTE_SYNC_IDLE_MS, 900_000)
+const REMOTE_MIN_INTERVAL_MS = positiveDuration(import.meta.env.VITE_REMOTE_SYNC_MIN_INTERVAL_MS, 3_600_000)
 
 function contentDocument(engine: ReturnType<typeof useEditorStore.getState>['engine']): ProjectFile {
   const document = JSON.parse(JSON.stringify(engine.serialize())) as ProjectFile
@@ -205,6 +206,7 @@ export function EditorPage() {
 
   const scheduleIdleSync = useCallback((): void => {
     clearIdleTimer()
+    if (!REMOTE_AUTO_SYNC_ENABLED) return
     const project = activeProjectRef.current
     if (!project || project.source !== 'remote' || project.capabilities?.edit === false) return
     const lastSync = lastRemoteSyncByProjectRef.current.get(project.id) ?? 0
@@ -215,6 +217,7 @@ export function EditorPage() {
   scheduleIdleSyncRef.current = scheduleIdleSync
 
   const performSync = useCallback(async (source: SyncSource): Promise<void> => {
+    if (source === 'idle' && !REMOTE_AUTO_SYNC_ENABLED) return
     const project = activeProjectRef.current
     if (!project || project.source !== 'remote' || project.capabilities?.edit === false) return
 
