@@ -47,6 +47,8 @@ export interface ProjectWriteInput {
   revision?: number
 }
 
+export type SyncSource = 'manual' | 'idle' | 'navigation'
+
 export function listProjects(token: string): Promise<RemoteProjectList> {
   return apiRequest<RemoteProjectList>('/projects/', { token })
 }
@@ -71,10 +73,17 @@ function projectPath(id: number, publicID?: string | null): string {
   return publicID ? `/projects/ref/${encodeURIComponent(publicID)}` : `/projects/${id}`
 }
 
-export function updateProject(token: string, id: number, input: ProjectWriteInput, publicID?: string | null): Promise<RemoteProject> {
+export function updateProject(
+  token: string,
+  id: number,
+  input: ProjectWriteInput,
+  publicID?: string | null,
+  syncSource: SyncSource = 'manual',
+): Promise<RemoteProject> {
   return apiRequest<RemoteProject>(projectPath(id, publicID), {
     method: 'PUT',
     token,
+    headers: { 'X-Sync-Source': syncSource },
     body: JSON.stringify(input),
   })
 }

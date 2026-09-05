@@ -178,7 +178,7 @@ export class SelectionManager {
     for (const e of page.edges) if (this.selN.has(e.from) && this.selN.has(e.to)) this.selE.add(e.id)
     for (const n of page.nodes) if (this.selN.has(n.id)) n.group = gid
     for (const e of page.edges) if (this.selE.has(e.id)) e.group = gid
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
@@ -193,7 +193,7 @@ export class SelectionManager {
     const page = this.state.currentPage()
     for (const n of page.nodes) if (n.group !== undefined && gs.has(n.group)) n.group = undefined
     for (const e of page.edges) if (e.group !== undefined && gs.has(e.group)) e.group = undefined
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
@@ -292,6 +292,7 @@ export class SelectionManager {
     })
     clip.nodes.forEach(n => { n.x += GRID; n.y += GRID })
     clip.edges.forEach(e => (e.waypoints || []).forEach(w => { w.x += GRID; w.y += GRID }))
+    this.state.markContentChanged()
     this.notify()
   }
 
@@ -319,7 +320,7 @@ export class SelectionManager {
     const page = this.state.currentPage()
     const ordered = withId(mergedItems(page), this.selectedIds(), dir)
     ordered.forEach((item, i) => { item.obj.z = i })
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
@@ -334,6 +335,7 @@ export class SelectionManager {
     page.nodes = page.nodes.filter(n => !this.selN.has(n.id))
     affectedPairs.forEach(([from, to]) => this.state.rebalanceParallelEdges(from, to))
     this.pruneGroups()
+    this.state.markContentChanged()
     this.clearSel()
   }
 
@@ -349,7 +351,6 @@ export class SelectionManager {
     this.undoStack.push(this.snapPage())
     if (this.undoStack.length > 60) this.undoStack.shift()
     this.redoStack.length = 0
-    this.state.scheduleAutosave()
   }
 
   applySnap(s: PageSnap): void {
@@ -366,7 +367,7 @@ export class SelectionManager {
     if (!s) return
     this.redoStack.push(this.snapPage())
     this.applySnap(s)
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
   }
 
   redo(): void {
@@ -374,6 +375,6 @@ export class SelectionManager {
     if (!s) return
     this.undoStack.push(this.snapPage())
     this.applySnap(s)
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
   }
 }

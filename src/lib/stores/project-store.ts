@@ -3,9 +3,11 @@ import { ApiError } from '../api/client'
 import * as projectsApi from '../api/projects-api'
 import { createBlankProjectFile } from '../drwy/document'
 import { createDrwyFile, parseDrwyObject } from '../drwy/format'
+import { deleteProjectDraft, loadProjectDraft, projectDataHash, saveProjectDraft } from '../persistence/project-drafts'
 import { useAuthStore } from './auth-store'
 import { useThemeStore } from './theme-store'
 import type { ProjectData, ProjectFile } from '../../canvas/state'
+import type { SyncSource } from '../api/projects-api'
 
 export type ProjectSource = 'guest' | 'remote'
 
@@ -30,7 +32,7 @@ export function projectEditorPath(project: Pick<Project, 'id' | 'source' | 'publ
   return project.publicId ? `/editor/p/${project.publicId}` : `/editor/${project.id}`
 }
 
-export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict'
+export type SaveStatus = 'idle' | 'dirty' | 'draft' | 'saving' | 'saved' | 'error' | 'conflict'
 export type SaveResult = 'saved' | 'conflict' | 'error' | 'idle'
 
 const GUEST_KEY = 'drawwwy.projects.guest'
@@ -95,6 +97,15 @@ function guestDocKey(id: string): string {
   return `${GUEST_DOC_PREFIX}${id}`
 }
 
+function loadLegacyGuestDocument(project: Pick<Project, 'id' | 'name'>): ProjectData {
+  try {
+    const raw = localStorage.getItem(guestDocKey(project.id))
+    return raw ? JSON.parse(raw) as ProjectData : createBlankProjectFile(project.name)
+  } catch {
+    return createBlankProjectFile(project.name)
+  }
+}
+
 function toProject(remote: projectsApi.RemoteProject): Project {
   return {
     id: String(remote.id),
@@ -132,6 +143,7 @@ interface ProjectStore {
   error: string | null
   activeProject: Project | null
   activeProjectData: ProjectData | null
+  activeCloudData: ProjectData | null
   conflictDocument: ProjectFile | null
   saveStatus: SaveStatus
   loadProjects: () => Promise<void>
@@ -140,11 +152,13 @@ interface ProjectStore {
   renameProject: (id: string, name: string) => Promise<void>
   duplicateProject: (id: string) => Promise<Project | null>
   openProject: (id?: string, publicID?: string, localRef?: string) => Promise<ProjectData | null>
-  saveActiveProject: (document: ProjectFile, name?: string, thumbnailUrl?: string | null) => Promise<SaveResult>
+  saveActiveProject: (document: ProjectFile, name?: string, thumbnailUrl?: string | null, syncSource?: SyncSource) => Promise<SaveResult>
   saveDocumentAsRemote: (document: ProjectFile, name?: string, thumbnailUrl?: string | null) => Promise<Project | null>
   reloadAfterConflict: () => Promise<ProjectData | null>
   saveConflictAsCopy: () => Promise<Project | null>
   markDirty: () => void
+  markDraftSaved: () => void
+  markClean: () => void
   clearActiveProject: () => void
 }
 
@@ -154,6 +168,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   error: null,
   activeProject: null,
   activeProjectData: null,
+  activeCloudData: null,
   conflictDocument: null,
   saveStatus: 'idle',
 
@@ -200,11 +215,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
     const projects = [project, ...get().projects.filter(p => p.source === 'guest')]
     persistGuestProjects(projects)
+    const document = createBlankProjectFile(title, currentTheme())
     try {
-      localStorage.setItem(guestDocKey(project.id), JSON.stringify(createBlankProjectFile(title, currentTheme())))
+      localStorage.setItem(guestDocKey(project.id), JSON.stringify(document))
     } catch {
       /* noop */
     }
+    await saveProjectDraft(project, document, { pending: false }).catch(() => undefined)
     set({ projects })
     return project
   },
@@ -222,6 +239,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         /* noop */
       }
     }
+    await deleteProjectDraft(project).catch(() => undefined)
     const projects = get().projects.filter(p => p.id !== id)
     persistGuestProjects(projects)
     set({ projects })
@@ -260,15 +278,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         createdAt: now,
         updatedAt: now,
       }
+      const draft = await loadProjectDraft(project).catch(() => null)
+      const source = draft?.document ?? loadLegacyGuestDocument(project)
+      const cloned = JSON.parse(JSON.stringify(source)) as ProjectData
+      if (cloned.doc) cloned.doc.name = copy.name
+      let legacySaved = false
       try {
-        const raw = localStorage.getItem(guestDocKey(project.id))
-        const source = raw ? JSON.parse(raw) as ProjectData : createBlankProjectFile(project.name)
-        const cloned = JSON.parse(JSON.stringify(source)) as ProjectData
-        if (cloned.doc) cloned.doc.name = copy.name
         localStorage.setItem(guestDocKey(copy.id), JSON.stringify(cloned))
+        legacySaved = true
       } catch {
-        return null
+        /* IndexedDB remains the primary copy. */
       }
+      const draftSaved = await saveProjectDraft(copy, cloned, { pending: false }).then(() => true).catch(() => false)
+      if (!legacySaved && !draftSaved) return null
       const projects = [copy, ...get().projects]
       persistGuestProjects(projects)
       set({ projects })
@@ -305,15 +327,42 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         const remote = publicID
           ? await projectsApi.getProjectByPublicID(token, publicID)
           : await projectsApi.getProject(token, remoteId as number)
-        const projectData = remoteProjectData(remote)
+        const remoteData = remoteProjectData(remote)
         const opened = toProject(remote)
+        if (request !== latestOpenRequest) return null
+        let projectData = remoteData
+        let restoredDraft = false
+        try {
+          const draft = await loadProjectDraft(opened)
+          if (request !== latestOpenRequest) return null
+          if (draft) {
+            const remoteHash = await projectDataHash(remoteData)
+            if (draft.contentHash === remoteHash) {
+              await deleteProjectDraft(opened)
+            } else if (draft.pending && opened.capabilities?.edit !== false) {
+              const compatible = draft.baseRevision === opened.revision
+              const restore = compatible || window.confirm(
+                'Existe un borrador local basado en una revision anterior. Aceptar para recuperarlo o Cancelar para usar la version de la nube.',
+              )
+              if (restore) {
+                projectData = draft.document
+                restoredDraft = true
+              } else {
+                await deleteProjectDraft(opened)
+              }
+            }
+          }
+        } catch {
+          // IndexedDB is best effort; opening the remote project must continue.
+        }
         if (request !== latestOpenRequest) return null
         set({
           activeProject: opened,
           activeProjectData: projectData,
+          activeCloudData: remoteData,
           projects: get().projects.some(p => p.id === opened.id) ? get().projects.map(p => p.id === opened.id ? opened : p) : [opened, ...get().projects],
           loading: false,
-          saveStatus: 'saved',
+          saveStatus: restoredDraft ? 'draft' : 'saved',
         })
         return projectData
       } catch (error) {
@@ -325,25 +374,26 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     if (project?.source === 'guest') {
       try {
-        const raw = localStorage.getItem(guestDocKey(project.id))
-        const data = raw ? JSON.parse(raw) as ProjectData : createBlankProjectFile(project.name)
+        const draft = await loadProjectDraft(project).catch(() => null)
+        const data = draft?.document ?? loadLegacyGuestDocument(project)
+        if (!draft) await saveProjectDraft(project, data, { pending: false }).catch(() => undefined)
         if (request !== latestOpenRequest) return null
-        set({ activeProject: project, activeProjectData: data, saveStatus: 'idle' })
+        set({ activeProject: project, activeProjectData: data, activeCloudData: data, saveStatus: 'idle' })
         return data
       } catch {
         const data = createBlankProjectFile(project.name)
         if (request !== latestOpenRequest) return null
-        set({ activeProject: project, activeProjectData: data, saveStatus: 'idle' })
+        set({ activeProject: project, activeProjectData: data, activeCloudData: data, saveStatus: 'idle' })
         return data
       }
     }
 
     if (request !== latestOpenRequest) return null
-    set({ activeProject: null, activeProjectData: null, saveStatus: 'idle' })
+    set({ activeProject: null, activeProjectData: null, activeCloudData: null, saveStatus: 'idle' })
     return null
   },
 
-  saveActiveProject: async (document, name, thumbnailUrl) => {
+  saveActiveProject: async (document, name, thumbnailUrl, syncSource = 'manual') => {
     const project = get().activeProject
     if (!project) return 'idle'
     const title = name?.trim() || document.doc.name || project.name || UNTITLED
@@ -354,9 +404,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       } catch {
         /* noop */
       }
+      await saveProjectDraft(project, document, { pending: false }).catch(() => undefined)
       const projects = get().projects.map(p => p.id === project.id ? { ...p, name: title, updatedAt: now, thumbnailUrl: thumbnailUrl ?? p.thumbnailUrl } : p)
       persistGuestProjects(projects)
-      set({ projects, activeProject: { ...project, name: title, updatedAt: now, thumbnailUrl: thumbnailUrl ?? project.thumbnailUrl }, saveStatus: 'saved' })
+      const updated = { ...project, name: title, updatedAt: now, thumbnailUrl: thumbnailUrl ?? project.thumbnailUrl }
+      set(state => ({
+        projects,
+        activeProject: state.activeProject?.id === project.id ? updated : state.activeProject,
+        activeProjectData: state.activeProject?.id === project.id ? document : state.activeProjectData,
+        activeCloudData: state.activeProject?.id === project.id ? document : state.activeCloudData,
+        saveStatus: state.activeProject?.id === project.id ? 'saved' : state.saveStatus,
+      }))
       return 'saved'
     }
 
@@ -373,16 +431,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         doc: createDrwyFile(document, title),
         thumbnail_url: thumbnailUrl ?? project.thumbnailUrl ?? null,
         revision: project.revision,
-      }, project.publicId)
+      }, project.publicId, syncSource)
       const updated = toProject(remote)
-      set({
-        projects: get().projects.map(p => p.id === updated.id ? updated : p),
-        activeProject: updated,
-        saveStatus: 'saved',
-        conflictDocument: null,
-      })
+      set(state => ({
+        projects: state.projects.map(p => p.id === updated.id ? updated : p),
+        activeProject: state.activeProject?.id === updated.id ? updated : state.activeProject,
+        activeProjectData: state.activeProject?.id === updated.id ? document : state.activeProjectData,
+        activeCloudData: state.activeProject?.id === updated.id ? document : state.activeCloudData,
+        saveStatus: state.activeProject?.id === updated.id ? 'saved' : state.saveStatus,
+        conflictDocument: state.activeProject?.id === updated.id ? null : state.conflictDocument,
+      }))
       return 'saved'
     } catch (error) {
+      if (get().activeProject?.id !== project.id) return 'error'
       if (error instanceof ApiError && error.status === 409) {
         set({ saveStatus: 'conflict', error: 'El proyecto remoto cambio desde otra sesion', conflictDocument: document })
         return 'conflict'
@@ -411,6 +472,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         projects: [project, ...get().projects.filter(p => p.id !== project.id)],
         activeProject: project,
         activeProjectData: document,
+        activeCloudData: document,
         saveStatus: 'saved',
         conflictDocument: null,
       })
@@ -431,10 +493,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         : await projectsApi.getProject(token, project.remoteId)
       const data = remoteProjectData(remote)
       const updated = toProject(remote)
+      await deleteProjectDraft(updated).catch(() => undefined)
       set({
         projects: get().projects.map(p => p.id === updated.id ? updated : p),
         activeProject: updated,
         activeProjectData: data,
+        activeCloudData: data,
         saveStatus: 'saved',
         conflictDocument: null,
         error: null,
@@ -460,8 +524,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (current !== 'saving') set({ saveStatus: 'dirty' })
   },
 
+  markDraftSaved: () => {
+    const current = get().saveStatus
+    if (current !== 'saving' && current !== 'error' && current !== 'conflict') {
+      set({ saveStatus: 'draft' })
+    }
+  },
+
+  markClean: () => {
+    const current = get().saveStatus
+    if (current !== 'saving') set({ saveStatus: 'saved' })
+  },
+
   clearActiveProject: () => {
     latestOpenRequest += 1
-    set({ activeProject: null, activeProjectData: null, conflictDocument: null, saveStatus: 'idle' })
+    set({ activeProject: null, activeProjectData: null, activeCloudData: null, conflictDocument: null, saveStatus: 'idle' })
   },
 }))

@@ -13,6 +13,7 @@ export function EditorHeader() {
   const engine = useEditorStore(s => s.engine)
   useEditorStore(s => s.version)
   const toggleAnimationModal = useEditorStore(s => s.toggleAnimationModal)
+  const syncActiveProject = useEditorStore(s => s.syncActiveProject)
   const saveStatus = useProjectStore(s => s.saveStatus)
   const activeProject = useProjectStore(s => s.activeProject)
   const reloadAfterConflict = useProjectStore(s => s.reloadAfterConflict)
@@ -66,18 +67,21 @@ export function EditorHeader() {
   }
 
   const saveText = saveStatus === 'dirty'
-    ? 'Sin guardar'
+    ? activeProject?.source === 'remote' ? 'Pendiente de sincronizar' : 'Guardando localmente'
+    : saveStatus === 'draft'
+      ? 'Borrador local'
     : saveStatus === 'saving'
-      ? 'Guardando'
+      ? 'Sincronizando'
       : saveStatus === 'saved'
-        ? activeProject?.source === 'remote' ? 'Guardado en nube' : 'Guardado local'
+        ? activeProject?.source === 'remote' ? 'Sincronizado' : 'Guardado local'
         : saveStatus === 'error'
-          ? 'Error al guardar'
+          ? 'Error: borrador local conservado'
           : saveStatus === 'conflict'
-            ? 'Conflicto remoto'
+            ? 'Conflicto: borrador local conservado'
             : activeProject?.source === 'remote'
               ? 'Nube'
               : 'Local'
+  const canSync = activeProject?.source === 'remote' && activeProject.capabilities?.edit !== false
 
   return (
     <header>
@@ -94,7 +98,10 @@ export function EditorHeader() {
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onBlur={commit}
-            onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancelRename() }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's')) commit()
+              if (e.key === 'Escape') cancelRename()
+            }}
           />
         ) : (
           <span
@@ -109,7 +116,18 @@ export function EditorHeader() {
       <div className="spacer" />
 
       <div className="header-pill">
-        <span className="save-status">{saveText}</span>
+        <span className="save-status" title={saveText}>{saveText}</span>
+        {canSync && (
+          <button
+            className="icon-btn"
+            disabled={saveStatus === 'saving'}
+            title="Sincronizar con la nube (Ctrl+S)"
+            aria-label="Sincronizar con la nube"
+            onClick={() => void syncActiveProject('manual')}
+          >
+            <svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.1 8.5 4.5 4.5 0 0 0 7 18z" /><path d="M12 15V8M9 11l3-3 3 3" /></svg>
+          </button>
+        )}
         {saveStatus === 'conflict' && (
           <>
             <button className="icon-btn" title="Recargar la version remota" aria-label="Recargar la version remota" onClick={() => void handleReloadAfterConflict()}>

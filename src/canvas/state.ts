@@ -51,6 +51,7 @@ export class DocumentState {
   doc: Document
   settings: Settings
   onProjectApplied: (() => void) | null = null
+  onContentChange: (() => void) | null = null
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null
   private autosavePaused = false
@@ -246,7 +247,12 @@ export class DocumentState {
 
   setProjectName(name: string): void {
     this.doc.name = name
+    this.markContentChanged()
+  }
+
+  markContentChanged(): void {
     this.scheduleAutosave()
+    this.onContentChange?.()
   }
 
   saveAutosave(force = false): void {

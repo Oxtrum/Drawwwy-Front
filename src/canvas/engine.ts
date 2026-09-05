@@ -217,14 +217,15 @@ export class CanvasEngine {
     if (this.readOnly) return
     this.state.doc.theme = resolveTheme(theme)
     this.operation('document.theme', 'document', { theme: this.state.doc.theme })
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
   updateSettings(patch: Partial<typeof this.state.settings>): void {
     if (this.readOnly) return
     Object.assign(this.state.settings, patch)
-    this.state.scheduleAutosave()
+    const contentKeys: Array<keyof typeof this.state.settings> = ['speed', 'dots', 'build', 'stagger']
+    if (contentKeys.some(key => key in patch)) this.state.markContentChanged()
     this.notify()
   }
 
@@ -235,7 +236,7 @@ export class CanvasEngine {
     this.sel.pushUndo()
     Object.assign(n, patch)
     this.operation('node.patch', n.collabId || `legacy:node:${id}`, patch as Record<string, unknown>)
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
@@ -246,7 +247,7 @@ export class CanvasEngine {
     this.sel.pushUndo()
     Object.assign(e, patch)
     this.operation('edge.patch', e.collabId || `legacy:edge:${id}`, patch as Record<string, unknown>)
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
@@ -255,14 +256,13 @@ export class CanvasEngine {
     this.state.doc.pages.push(this.state.blankPage('Página ' + (this.state.doc.pages.length + 1)))
     this.state.doc.cur = this.state.doc.pages.length - 1
     this.sel.clearSel()
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
   gotoPage(i: number): void {
     this.state.doc.cur = DocumentState.clamp(i, 0, this.state.doc.pages.length - 1)
     this.sel.clearSel()
-    this.state.scheduleAutosave()
     this.notify()
   }
 
@@ -272,7 +272,7 @@ export class CanvasEngine {
     this.state.doc.pages.splice(i, 1)
     this.state.doc.cur = DocumentState.clamp(this.state.doc.cur, 0, this.state.doc.pages.length - 1)
     this.sel.clearSel()
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
@@ -282,7 +282,7 @@ export class CanvasEngine {
     if (!pg) return
     pg.name = name
     this.operation('page.rename', pg.collabId || `legacy:page:${i}`, { name })
-    this.state.scheduleAutosave()
+    this.state.markContentChanged()
     this.notify()
   }
 
@@ -323,13 +323,14 @@ export class CanvasEngine {
     if (this.readOnly) { this.cancelEdit(); return }
     if (!this.editing || !this.editBox) return
     const v = this.editBox.value
-    if (this.editing.label !== v) this.sel.pushUndo()
+    const changed = this.editing.label !== v
+    if (changed) this.sel.pushUndo()
     this.editing.label = v
     this.operation('from' in this.editing ? 'edge.patch' : 'node.patch', this.editing.collabId || `legacy:entity:${this.editing.id}`, { label: v })
     this.editing = null
     this.editBox = null
     this.onEditBoxChange?.(null)
-    this.state.scheduleAutosave()
+    if (changed) this.state.markContentChanged()
     this.notify()
   }
 

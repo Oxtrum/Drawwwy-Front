@@ -34,7 +34,7 @@ export function EdgeToolbar({ edge }: { edge: Edge }) {
   const beginDrag = (): void => engine.sel.pushUndo()
   const live = (p: Partial<Edge>): void => {
     Object.assign(edge, p)
-    engine.state.scheduleAutosave()
+    engine.state.markContentChanged()
     engine.notify()
   }
 

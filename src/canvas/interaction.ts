@@ -123,6 +123,7 @@ export function addImageFromBlob(eng: CanvasEngine, blob: Blob, x = W / 2, y = H
         w: Math.round(im.naturalWidth * sc),
         h: Math.round(im.naturalHeight * sc),
       })
+      eng.state.markContentChanged()
       eng.sel.selectOnly('node', n.id)
     }
     im.src = url
@@ -217,7 +218,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
             route: eng.state.settings.edgeRoute,
           })
           eng.connecting = null
-          if (e) eng.sel.selectOnly('edge', e.id)
+          if (e) {
+            eng.sel.selectOnly('edge', e.id)
+            eng.state.markContentChanged()
+          }
         }
       } else eng.connecting = null
       eng.notify()
@@ -463,7 +467,10 @@ export function attachInteraction(eng: CanvasEngine): () => void {
           toAnchor: targetAnchor.position,
           route: eng.state.settings.edgeRoute,
         })
-        if (e) eng.sel.selectOnly('edge', e.id)
+        if (e) {
+          eng.state.markContentChanged()
+          eng.sel.selectOnly('edge', e.id)
+        }
       }
       eng.connectDrag = null
     }
@@ -492,7 +499,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     eng.resizing = null
     eng.wpDrag = null
     eng.edgeEndDrag = null
-    if (hadDrag) eng.state.scheduleAutosave()
+    if (hadDrag) eng.state.markContentChanged()
     eng.notify()
   }
 
@@ -502,7 +509,13 @@ export function attachInteraction(eng: CanvasEngine): () => void {
     if (single && single.type === 'edge' && single.obj) {
       const se = single.obj as Edge
       const wi = hitWaypoint(se, p.x, p.y)
-      if (wi >= 0) { eng.sel.pushUndo(); se.waypoints.splice(wi, 1); return }
+      if (wi >= 0) {
+        eng.sel.pushUndo()
+        se.waypoints.splice(wi, 1)
+        eng.state.markContentChanged()
+        eng.notify()
+        return
+      }
     }
     const hit = hitTopmost(eng, p.x, p.y)
     if (!hit) return
@@ -552,7 +565,7 @@ export function attachInteraction(eng: CanvasEngine): () => void {
           (e.waypoints || []).forEach(w => { w.x += dx; w.y += dy })
         }
       }
-      eng.state.scheduleAutosave()
+      eng.state.markContentChanged()
       eng.notify()
       return
     }

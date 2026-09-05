@@ -4,6 +4,7 @@ export interface PersonalBoardState {
   viewX?: number
   viewY?: number
   viewZoom?: number
+  edgeRoute?: 'straight' | 'ortho'
 }
 
 function key(projectId: string): string { return `drawwwy.collaboration.personal.${projectId}` }

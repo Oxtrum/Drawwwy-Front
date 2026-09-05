@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClickOutside } from '../../lib/hooks/use-click-outside'
 import { useAuthStore } from '../../lib/stores/auth-store'
+import { useEditorStore } from '../../lib/stores/editor-store'
 
 /**
  * Control de sesión: avatar de Google con menú, o botón «Iniciar sesion» que
@@ -16,6 +17,7 @@ export function AccountMenu({ compact = false }: { compact?: boolean }) {
   const authStatus = useAuthStore(s => s.status)
   const user = useAuthStore(s => s.user)
   const logout = useAuthStore(s => s.logout)
+  const requestLogout = useEditorStore(s => s.requestLogout)
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -67,7 +69,7 @@ export function AccountMenu({ compact = false }: { compact?: boolean }) {
           <button
             onClick={() => {
               setOpen(false)
-              logout()
+              if (!requestLogout()) logout()
             }}
           >
             Salir

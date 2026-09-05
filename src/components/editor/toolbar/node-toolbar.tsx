@@ -39,7 +39,7 @@ export function NodeToolbar({ node }: { node: Node }) {
   const beginDrag = (): void => engine.sel.pushUndo()
   const live = (p: Partial<Node>): void => {
     Object.assign(node, p)
-    engine.state.scheduleAutosave()
+    engine.state.markContentChanged()
     engine.notify()
   }
 

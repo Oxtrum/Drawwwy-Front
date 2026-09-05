@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { exportCurrentPageAsJpg, exportDocumentAsPdf, renderCurrentPageThumbnail } from '../../canvas/export'
 import { createDrwyFile, downloadBlob, DRWY_MIME, parseDrwyText, sanitizeFilename } from '../../lib/drwy/format'
 import { useAuthStore } from '../../lib/stores/auth-store'
+import { useEditorStore } from '../../lib/stores/editor-store'
 import { projectEditorPath, useProjectStore } from '../../lib/stores/project-store'
 import { useClickOutside } from '../../hooks/use-click-outside'
 import type { CanvasEngine } from '../../canvas/engine'
@@ -58,6 +59,7 @@ export function HeaderMenu({ engine }: HeaderMenuProps) {
   const activeProject = useProjectStore(s => s.activeProject)
   const saveDocumentAsRemote = useProjectStore(s => s.saveDocumentAsRemote)
   const duplicateProject = useProjectStore(s => s.duplicateProject)
+  const syncActiveProject = useEditorStore(s => s.syncActiveProject)
 
   useClickOutside(wrapRef, () => setOpen(false))
 
@@ -79,8 +81,8 @@ export function HeaderMenu({ engine }: HeaderMenuProps) {
       engine.applyProjectData(parsed.projectData)
       if (parsed.title) {
         engine.state.setProjectName(parsed.title)
-        engine.notify()
-      }
+      } else engine.state.markContentChanged()
+      engine.notify()
     } catch (error) {
       const message = error instanceof Error ? error.message.replace(/^DRWY_INVALID:\s*/, '') : 'No se pudo importar el archivo.'
       window.alert(`No se pudo importar el archivo: ${message}`)
@@ -119,6 +121,7 @@ export function HeaderMenu({ engine }: HeaderMenuProps) {
       return
     }
     if (activeProject?.source === 'remote') {
+      await syncActiveProject('manual')
       close()
       return
     }
@@ -170,7 +173,7 @@ export function HeaderMenu({ engine }: HeaderMenuProps) {
           <MenuItem icon={<PdfIcon />} label="Exportar PDF" onClick={() => void handleExportPdf()} />
           <div className="ctx-sep" />
           {activeProject && <MenuItem icon={<DuplicateIcon />} label="Duplicar tablero" onClick={() => void handleDuplicate()} />}
-          <MenuItem icon={<CloudIcon />} label="Guardar en la nube" onClick={() => void handleCloudSave()} />
+          <MenuItem icon={<CloudIcon />} label={activeProject?.source === 'remote' ? 'Sincronizar con la nube' : 'Guardar en la nube'} onClick={() => void handleCloudSave()} />
         </div>
       )}
     </div>
